@@ -1,0 +1,2704 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PaiBan 排班引擎 API 测试控制台</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%234facfe'/><text x='50' y='65' font-size='50' font-weight='bold' fill='white' text-anchor='middle'>排</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --bg-card: #1c2128;
+      --border-primary: #30363d;
+      --border-secondary: #484f58;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #6e7681;
+      --accent-cyan: #58a6ff;
+      --accent-green: #3fb950;
+      --accent-orange: #d29922;
+      --accent-red: #f85149;
+      --accent-purple: #a371f7;
+      --accent-pink: #db61a2;
+      --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      --gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      --gradient-4: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+      --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.4);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      line-height: 1.6;
+    }
+
+    .header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-primary);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-content {
+      max-width: 1600px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--gradient-3);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: white;
+    }
+
+    .logo-text {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: var(--gradient-3);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-subtitle { font-size: 0.75rem; color: var(--text-secondary); }
+
+    .server-config { display: flex; align-items: center; gap: 1rem; }
+
+    .server-input {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 1rem;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+      width: 280px;
+    }
+
+    .server-input:focus { outline: none; border-color: var(--accent-cyan); }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-sm);
+      font-size: 0.875rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.offline { background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    .main {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 2rem;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 2rem;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .sidebar { display: flex; flex-direction: column; gap: 1.5rem; overflow: auto; min-height: 0; }
+
+    .scenario-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .scenario-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .scenario-card.restaurant::before { background: var(--gradient-2); }
+    .scenario-card.factory::before { background: var(--gradient-1); }
+    .scenario-card.housekeeping::before { background: var(--gradient-4); }
+    .scenario-card.nursing::before { background: var(--gradient-3); }
+
+    .scenario-card:hover { border-color: var(--border-secondary); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+    .scenario-card:hover::before, .scenario-card.active::before { opacity: 1; }
+    .scenario-card.active { border-color: var(--accent-cyan); }
+
+    .scenario-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+
+    .scenario-icon {
+      width: 44px; height: 44px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    .scenario-card.restaurant .scenario-icon { background: rgba(248, 81, 73, 0.15); }
+    .scenario-card.factory .scenario-icon { background: rgba(163, 113, 247, 0.15); }
+    .scenario-card.housekeeping .scenario-icon { background: rgba(63, 185, 80, 0.15); }
+    .scenario-card.nursing .scenario-icon { background: rgba(88, 166, 255, 0.15); }
+
+    .scenario-title { font-size: 1.1rem; font-weight: 600; }
+    .scenario-subtitle { font-size: 0.75rem; color: var(--text-secondary); }
+    .scenario-description { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1rem; }
+
+    .scenario-features { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+    .feature-tag {
+      font-size: 0.7rem;
+      padding: 0.25rem 0.5rem;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+    }
+
+    .quick-actions {
+      background: var(--bg-card);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+    }
+
+    .quick-actions-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .quick-btn {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.5rem;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      transition: all 0.2s;
+    }
+
+    .quick-btn:hover { background: var(--bg-secondary); border-color: var(--accent-cyan); }
+    .quick-btn:last-child { margin-bottom: 0; }
+
+    .content { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      background: var(--bg-secondary);
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border-primary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-title { font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+
+    .method-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.25rem 0.5rem;
+      border-radius: var(--radius-sm);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .method-badge.get { background: var(--accent-green); color: #000; }
+    .method-badge.post { background: var(--accent-cyan); color: #000; }
+
+    .panel-actions { display: flex; gap: 0.5rem; }
+
+    .btn {
+      padding: 0.5rem 1.25rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .btn-primary { background: var(--accent-cyan); color: #000; }
+    .btn-primary:hover { background: #79b8ff; transform: translateY(-1px); }
+    .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-primary); }
+    .btn-secondary:hover { border-color: var(--accent-cyan); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .panel-body { padding: 1.5rem; }
+
+    .code-editor {
+      width: 100%;
+      min-height: 200px;
+      max-height: 350px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: var(--text-primary);
+      resize: vertical;
+    }
+
+    .code-editor:focus { outline: none; border-color: var(--accent-cyan); }
+
+    .endpoint-display {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-md);
+      margin-bottom: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+    }
+
+    .endpoint-method { font-weight: 600; color: var(--accent-cyan); }
+    .endpoint-path { color: var(--text-secondary); }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border-primary);
+      margin-bottom: 1rem;
+    }
+
+    .tab {
+      padding: 0.75rem 1.25rem;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      margin-bottom: -1px;
+      background: none;
+      border-left: none;
+      border-right: none;
+      border-top: none;
+    }
+
+    .tab:hover { color: var(--text-primary); }
+    .tab.active { color: var(--accent-cyan); border-bottom-color: var(--accent-cyan); }
+    .tab-content { display: none; flex: 1; min-height: 0; }
+    .tab-content.active { display: flex; flex-direction: column; }
+
+    /* Main Panel Tabs */
+    .main-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .main-panel-header { flex-wrap: wrap; gap: 1rem; }
+    
+    .main-tabs {
+      display: flex;
+      gap: 0;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-md);
+      padding: 4px;
+    }
+
+    .main-tab {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      border-radius: var(--radius-sm);
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .main-tab:hover { color: var(--text-primary); background: var(--bg-secondary); }
+    
+    .main-tab.active {
+      color: var(--text-primary);
+      background: var(--bg-card);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .main-tab .status-badge {
+      font-size: 0.75rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: var(--radius-sm);
+    }
+
+    .main-tab .status-badge.waiting { background: var(--bg-secondary); color: var(--text-muted); }
+    .main-tab .status-badge.success { background: var(--accent-green); color: #000; }
+    .main-tab .status-badge.error { background: var(--accent-red); color: #fff; }
+
+    .response-indicator {
+      color: var(--accent-green);
+      font-size: 0.6rem;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    .main-tab-content { display: none; flex: 1; min-height: 0; overflow: hidden; }
+    .main-tab-content.active { display: flex; flex-direction: column; }
+    .main-tab-content .panel-body { flex: 1; overflow: auto; display: flex; flex-direction: column; min-height: 0; }
+
+    /* Business View Styles */
+    .business-view, .request-biz-view {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      flex: 1;
+      overflow: auto;
+    }
+
+    .biz-section { margin-bottom: 1.5rem; }
+    .biz-section:last-child { margin-bottom: 0; }
+
+    .biz-section-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-primary);
+    }
+
+    .biz-message {
+      padding: 1rem;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .biz-message.success { border-left: 4px solid var(--accent-green); }
+    .biz-message.partial { border-left: 4px solid var(--accent-orange); }
+    .biz-message.error { border-left: 4px solid var(--accent-red); }
+
+    /* Info Grid */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .info-item {
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-md);
+      padding: 0.75rem;
+    }
+
+    .info-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+    }
+
+    .info-value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .info-value.cyan { color: var(--accent-cyan); }
+    .info-value.green { color: var(--accent-green); }
+    .info-value.orange { color: var(--accent-orange); }
+    .info-value.purple { color: var(--accent-purple); }
+
+    /* Employee/Shift/Requirement Cards */
+    .item-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .item-card {
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-md);
+      padding: 0.75rem;
+      border-left: 3px solid var(--accent-cyan);
+    }
+
+    .item-card.shift { border-left-color: var(--accent-purple); }
+    .item-card.requirement { border-left-color: var(--accent-orange); }
+    .item-card.constraint { border-left-color: var(--accent-green); }
+
+    .item-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .item-detail {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .item-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      margin-top: 0.5rem;
+    }
+
+    .item-tag {
+      font-size: 0.65rem;
+      padding: 0.15rem 0.4rem;
+      background: var(--bg-primary);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .stat-card {
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .stat-value.green { color: var(--accent-green); }
+    .stat-value.cyan { color: var(--accent-cyan); }
+    .stat-value.orange { color: var(--accent-orange); }
+    .stat-value.purple { color: var(--accent-purple); }
+
+    .stat-desc { font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.25rem; }
+
+    /* Summary Cards */
+    .results-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .summary-card {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-md);
+      padding: 0.75rem;
+      text-align: center;
+    }
+
+    .summary-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .summary-value.green { color: var(--accent-green); }
+    .summary-value.cyan { color: var(--accent-cyan); }
+    .summary-value.purple { color: var(--accent-purple); }
+    .summary-value.orange { color: var(--accent-orange); }
+
+    .summary-label { font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.25rem; }
+
+    .response-meta {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .response-meta-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
+    .response-meta-label { color: var(--text-secondary); }
+    .response-meta-value { font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+    .response-meta-value.success { color: var(--accent-green); }
+    .response-meta-value.error { color: var(--accent-red); }
+
+    .response-output {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      max-height: 400px;
+      overflow: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .response-placeholder {
+      color: var(--text-muted);
+      font-style: italic;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 150px;
+      gap: 0.75rem;
+    }
+
+    .response-placeholder-icon { font-size: 2.5rem; opacity: 0.3; }
+
+    /* Day groups */
+    .day-group { margin-bottom: 1.25rem; }
+
+    .day-header {
+      font-weight: 600;
+      color: var(--accent-purple);
+      margin-bottom: 0.5rem;
+      padding: 0.4rem 0;
+      border-bottom: 1px dashed var(--border-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .day-badge {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.4rem;
+      background: var(--accent-purple);
+      color: white;
+      border-radius: var(--radius-sm);
+    }
+
+    .assignment-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .assignment-card {
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-md);
+      padding: 0.75rem;
+      border-left: 3px solid var(--accent-cyan);
+    }
+
+    .assignment-emp { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; }
+    .assignment-detail { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary); }
+    .assignment-shift { background: var(--bg-primary); padding: 0.2rem 0.4rem; border-radius: var(--radius-sm); }
+
+    .constraint-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.75rem;
+      border-radius: var(--radius-md);
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+
+    .constraint-badge.valid { background: rgba(63, 185, 80, 0.15); color: var(--accent-green); }
+    .constraint-badge.invalid { background: rgba(248, 81, 73, 0.15); color: var(--accent-red); }
+
+    /* 约束违规样式 */
+    .violations-container {
+      background: rgba(248, 81, 73, 0.05);
+      border: 1px solid rgba(248, 81, 73, 0.2);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      margin-top: 0.5rem;
+    }
+    .violations-container.soft {
+      background: rgba(210, 153, 34, 0.05);
+      border-color: rgba(210, 153, 34, 0.2);
+      margin-top: 1rem;
+    }
+    .violations-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(248, 81, 73, 0.15);
+    }
+    .violations-container.soft .violations-header {
+      border-bottom-color: rgba(210, 153, 34, 0.15);
+    }
+    .violations-icon { font-size: 1.25rem; }
+    .violations-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--accent-red);
+    }
+    .violations-container.soft .violations-title {
+      color: var(--accent-orange);
+    }
+    .violations-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .violation-group {
+      background: var(--bg-secondary);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .violation-rule {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 0.75rem;
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border-primary);
+    }
+    .violation-rule-icon { font-size: 1rem; }
+    .violation-rule-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--accent-cyan);
+      flex: 1;
+    }
+    .violation-count {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      background: rgba(248, 81, 73, 0.2);
+      color: var(--accent-red);
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+    }
+
+    .violation-items { padding: 0.5rem; }
+    .violation-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.5rem 0.6rem;
+      border-radius: var(--radius-sm);
+      transition: background 0.15s;
+    }
+    .violation-item:hover { background: var(--bg-tertiary); }
+    .violation-severity {
+      flex-shrink: 0;
+      font-size: 0.85rem;
+    }
+    .violation-message {
+      flex: 1;
+      font-size: 0.875rem;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+    .violation-penalty {
+      font-size: 0.75rem;
+      padding: 0.15rem 0.4rem;
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--accent-red);
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .violation-item.soft .violation-penalty {
+      background: rgba(210, 153, 34, 0.15);
+      color: var(--accent-orange);
+    }
+
+    /* 约束模板样式 */
+    .template-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-md);
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+    .template-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .template-header:hover { background: var(--bg-tertiary); }
+    .template-icon {
+      font-size: 2rem;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-primary);
+      border-radius: var(--radius-md);
+    }
+    .template-info { flex: 1; }
+    .template-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.25rem;
+    }
+    .template-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+    .template-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .template-count {
+      font-size: 0.8rem;
+      padding: 0.25rem 0.5rem;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+    }
+    .template-arrow {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      transition: transform 0.2s;
+    }
+    .template-body {
+      border-top: 1px solid var(--border-primary);
+      padding: 1rem;
+      background: var(--bg-secondary);
+    }
+
+    .constraint-group {
+      margin-bottom: 1rem;
+    }
+    .constraint-group:last-child { margin-bottom: 0; }
+    .constraint-group-title {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .constraint-type-badge {
+      padding: 0.25rem 0.6rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .constraint-type-badge.hard {
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--accent-red);
+    }
+    .constraint-type-badge.soft {
+      background: rgba(163, 113, 247, 0.15);
+      color: var(--accent-purple);
+    }
+    .constraint-group-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .constraint-list {
+      display: grid;
+      gap: 0.5rem;
+    }
+    .constraint-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.6rem 0.75rem;
+      background: var(--bg-card);
+      border-radius: var(--radius-sm);
+      border-left: 3px solid var(--accent-red);
+    }
+    .constraint-item.soft {
+      border-left-color: var(--accent-purple);
+    }
+    .constraint-name {
+      font-size: 0.9rem;
+      color: var(--text-primary);
+    }
+    .constraint-meta {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .constraint-category {
+      font-size: 0.75rem;
+      padding: 0.15rem 0.4rem;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+    }
+    .constraint-default {
+      font-size: 0.8rem;
+      color: var(--accent-cyan);
+      font-weight: 500;
+    }
+
+    /* 模板操作按钮 */
+    .template-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border-primary);
+    }
+    .template-action-btn {
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-primary);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .template-action-btn:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--border-secondary);
+    }
+    .template-action-btn.edit:hover {
+      border-color: var(--accent-orange);
+      color: var(--accent-orange);
+    }
+    .template-action-btn.apply:hover {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+    .template-action-btn.add:hover {
+      border-color: var(--accent-purple);
+      color: var(--accent-purple);
+    }
+    .template-action-btn.cancel {
+      color: var(--accent-red);
+      border-color: rgba(255, 85, 85, 0.3);
+    }
+    .template-action-btn.cancel:hover {
+      border-color: var(--accent-red);
+      background: rgba(255, 85, 85, 0.1);
+    }
+
+    /* 约束库样式 */
+    .library-category {
+      margin-bottom: 1.5rem;
+    }
+    .library-category-header {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border-primary);
+      margin-bottom: 0.75rem;
+    }
+    .library-constraints {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .library-item {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      transition: all 0.2s;
+    }
+    .library-item:hover {
+      border-color: var(--accent-cyan);
+      background: var(--bg-tertiary);
+    }
+    .library-item.hard {
+      border-left: 3px solid var(--accent-red);
+    }
+    .library-item.soft {
+      border-left: 3px solid var(--accent-cyan);
+    }
+    .library-item-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+    .library-item-name {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .library-item-code {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: var(--bg-primary);
+      padding: 0.2rem 0.5rem;
+      border-radius: var(--radius-sm);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .library-item-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 0.75rem;
+    }
+    .library-item-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .scenario-tags {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .scenario-tag {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      background: var(--bg-primary);
+      padding: 0.15rem 0.4rem;
+      border-radius: var(--radius-sm);
+    }
+    .param-list {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .param-badge {
+      font-size: 0.7rem;
+      color: var(--accent-purple);
+      background: rgba(189, 147, 249, 0.1);
+      padding: 0.15rem 0.4rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(189, 147, 249, 0.3);
+    }
+
+    /* 删除约束按钮 */
+    .constraint-delete-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0.25rem;
+      opacity: 0;
+      transition: all 0.2s;
+    }
+    .constraint-item:hover .constraint-delete-btn {
+      opacity: 1;
+    }
+    .constraint-delete-btn:hover {
+      color: var(--accent-red);
+    }
+
+    /* 约束库模态框 */
+    .library-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .library-modal-content {
+      background: var(--bg-card);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-lg);
+      width: 90%;
+      max-width: 600px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .library-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border-primary);
+      font-weight: 600;
+      color: var(--accent-cyan);
+    }
+    .library-modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.25rem;
+      cursor: pointer;
+      padding: 0.25rem;
+    }
+    .library-modal-close:hover {
+      color: var(--accent-red);
+    }
+    .library-modal-body {
+      padding: 1rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .library-select-item {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .library-select-item:hover {
+      border-color: var(--accent-cyan);
+      background: var(--bg-tertiary);
+    }
+    .library-select-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .library-select-name {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .library-select-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+    .library-select-params {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+
+    /* 新增约束表单 */
+    .add-constraint-form {
+      background: var(--bg-primary);
+      border: 1px solid var(--accent-purple);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .form-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--accent-purple);
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-primary);
+    }
+    .form-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    .form-row label {
+      width: 80px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .form-input, .form-select {
+      flex: 1;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 0.75rem;
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      font-family: inherit;
+    }
+    .form-input:focus, .form-select:focus {
+      outline: none;
+      border-color: var(--accent-purple);
+    }
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-primary);
+    }
+    .form-btn {
+      padding: 0.5rem 1.25rem;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .form-btn.cancel {
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+    }
+    .form-btn.cancel:hover {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+    .form-btn.submit {
+      background: var(--accent-purple);
+      color: white;
+    }
+    .form-btn.submit:hover {
+      opacity: 0.9;
+    }
+
+    /* 约束值输入框 */
+    .constraint-input {
+      background: var(--bg-primary);
+      border: 1px solid var(--accent-cyan);
+      border-radius: var(--radius-sm);
+      padding: 0.25rem 0.5rem;
+      color: var(--accent-cyan);
+      font-size: 0.8rem;
+      width: 120px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .constraint-input:focus {
+      outline: none;
+      border-color: var(--accent-purple);
+      box-shadow: 0 0 0 2px rgba(163, 113, 247, 0.2);
+    }
+
+    /* Toast 提示 */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--bg-card);
+      border: 1px solid var(--accent-green);
+      border-radius: var(--radius-md);
+      padding: 0.75rem 1.5rem;
+      color: var(--text-primary);
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      z-index: 1000;
+      opacity: 0;
+      transition: all 0.3s ease;
+      box-shadow: var(--shadow-lg);
+    }
+    .toast.error {
+      border-color: var(--accent-red);
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .json-key { color: #79c0ff; }
+    .json-string { color: #a5d6ff; }
+    .json-number { color: #56d364; }
+    .json-boolean { color: #ff7b72; }
+    .json-null { color: #8b949e; }
+
+    @media (max-width: 1200px) {
+      .main { grid-template-columns: 1fr; }
+      .sidebar { flex-direction: row; flex-wrap: wrap; }
+      .scenario-card { flex: 1; min-width: 250px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <div class="logo">
+        <div class="logo-icon">排</div>
+        <div>
+          <div class="logo-text">PaiBan Engine</div>
+          <div class="logo-subtitle">智能排班引擎 API 测试控制台</div>
+        </div>
+      </div>
+      <div class="server-config">
+        <input type="text" class="server-input" id="serverUrl" value="http://localhost:7012" placeholder="API 服务器地址">
+        <div class="status-indicator">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">检测中...</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <aside class="sidebar">
+      <div class="scenario-card restaurant active" data-scenario="restaurant">
+        <div class="scenario-header">
+          <div class="scenario-icon">🍜</div>
+          <div>
+            <div class="scenario-title">餐饮门店</div>
+            <div class="scenario-subtitle">Restaurant</div>
+          </div>
+        </div>
+        <p class="scenario-description">支持高峰期排班、两头班、技能匹配等餐饮行业特殊需求。</p>
+        <div class="scenario-features">
+          <span class="feature-tag">高峰期排班</span>
+          <span class="feature-tag">两头班</span>
+          <span class="feature-tag">技能匹配</span>
+        </div>
+      </div>
+
+      <div class="scenario-card factory" data-scenario="factory">
+        <div class="scenario-header">
+          <div class="scenario-icon">🏭</div>
+          <div>
+            <div class="scenario-title">工厂产线</div>
+            <div class="scenario-subtitle">Factory</div>
+          </div>
+        </div>
+        <p class="scenario-description">支持三班倒、倒班模式、连续生产等制造业场景。</p>
+        <div class="scenario-features">
+          <span class="feature-tag">三班倒</span>
+          <span class="feature-tag">倒班模式</span>
+          <span class="feature-tag">产线覆盖</span>
+        </div>
+      </div>
+
+      <div class="scenario-card housekeeping" data-scenario="housekeeping">
+        <div class="scenario-header">
+          <div class="scenario-icon">🏠</div>
+          <div>
+            <div class="scenario-title">家政服务</div>
+            <div class="scenario-subtitle">Housekeeping</div>
+          </div>
+        </div>
+        <p class="scenario-description">支持派单优化、路线规划、服务时间窗口等家政特色功能。</p>
+        <div class="scenario-features">
+          <span class="feature-tag">派单优化</span>
+          <span class="feature-tag">路线规划</span>
+          <span class="feature-tag">时间窗口</span>
+        </div>
+      </div>
+
+      <div class="scenario-card nursing" data-scenario="nursing">
+        <div class="scenario-header">
+          <div class="scenario-icon">💊</div>
+          <div>
+            <div class="scenario-title">长护险/护理</div>
+            <div class="scenario-subtitle">Nursing Care</div>
+          </div>
+        </div>
+        <p class="scenario-description">支持护理计划、服务连续性、资质匹配等医疗护理需求。</p>
+        <div class="scenario-features">
+          <span class="feature-tag">护理计划</span>
+          <span class="feature-tag">连续性保障</span>
+          <span class="feature-tag">资质匹配</span>
+        </div>
+      </div>
+
+      <div class="quick-actions">
+        <div class="quick-actions-title">快捷操作</div>
+        <button class="quick-btn" onclick="checkHealth()"><span>💓</span><span>健康检查</span></button>
+        <button class="quick-btn" onclick="getVersion()"><span>📋</span><span>版本信息</span></button>
+        <button class="quick-btn" onclick="getConstraintTemplates()"><span>📐</span><span>约束模板</span></button>
+        <button class="quick-btn" onclick="getConstraintLibrary()"><span>📚</span><span>约束库</span></button>
+        <button class="quick-btn" onclick="clearResponse()"><span>🗑️</span><span>清空响应</span></button>
+      </div>
+    </aside>
+
+    <section class="content">
+      <!-- Unified Panel with Main Tabs -->
+      <div class="panel main-panel">
+        <div class="panel-header main-panel-header">
+          <!-- Main Tabs for Request/Response -->
+          <div class="main-tabs">
+            <button class="main-tab active" data-main-tab="request" onclick="switchMainTab('request')">
+              <span class="method-badge post" id="requestMethod">POST</span>
+              <span>📝 请求配置</span>
+            </button>
+            <button class="main-tab" data-main-tab="response" onclick="switchMainTab('response')">
+              <span id="responseStatusBadge" class="status-badge waiting">⏳</span>
+              <span>📊 响应结果</span>
+              <span class="response-indicator" id="responseIndicator" style="display: none;">●</span>
+            </button>
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-secondary" onclick="formatRequest()">格式化</button>
+            <button class="btn btn-secondary" onclick="resetRequest()">重置</button>
+            <button class="btn btn-secondary" onclick="copyResponse()">📋 复制</button>
+            <button class="btn btn-primary" id="sendBtn" onclick="sendRequest()">🚀 发送请求</button>
+          </div>
+        </div>
+
+        <!-- Request Content -->
+        <div class="main-tab-content active" id="requestContent">
+          <div class="panel-body">
+            <div class="endpoint-display">
+              <span class="endpoint-method" id="endpointMethod">POST</span>
+              <span class="endpoint-path" id="endpointPath">/api/v1/schedule/generate</span>
+            </div>
+
+            <!-- Request Sub-Tabs -->
+            <div class="tabs">
+              <button class="tab active" data-tab="reqBiz" onclick="switchRequestTab('reqBiz')">📋 业务配置</button>
+              <button class="tab" data-tab="reqJson" onclick="switchRequestTab('reqJson')">{ } JSON 配置</button>
+            </div>
+
+            <!-- Request Business View -->
+            <div class="tab-content active" id="reqBizTab">
+              <div class="request-biz-view" id="requestBizView"></div>
+            </div>
+
+            <!-- Request JSON Tab -->
+            <div class="tab-content" id="reqJsonTab">
+              <textarea class="code-editor" id="requestBody" spellcheck="false"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Response Content -->
+        <div class="main-tab-content" id="responseContent">
+          <div class="panel-body">
+            <div class="response-meta" id="responseMeta" style="display: none;">
+              <div class="response-meta-item">
+                <span class="response-meta-label">状态:</span>
+                <span class="response-meta-value" id="responseStatus">-</span>
+              </div>
+              <div class="response-meta-item">
+                <span class="response-meta-label">耗时:</span>
+                <span class="response-meta-value" id="responseTime">-</span>
+              </div>
+              <div class="response-meta-item">
+                <span class="response-meta-label">大小:</span>
+                <span class="response-meta-value" id="responseSize">-</span>
+              </div>
+            </div>
+
+            <div id="resultsSummary" class="results-summary" style="display: none;">
+              <div class="summary-card">
+                <div class="summary-value green" id="summaryAssignments">0</div>
+                <div class="summary-label">排班数</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-value cyan" id="summaryFillRate">0%</div>
+                <div class="summary-label">满足率</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-value purple" id="summaryScore">0</div>
+                <div class="summary-label">约束得分</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-value orange" id="summaryDuration">-</div>
+                <div class="summary-label">计算耗时</div>
+              </div>
+            </div>
+
+            <div class="tabs" id="responseTabs" style="display: none;">
+              <button class="tab active" data-tab="resBiz" onclick="switchResponseTab('resBiz')">📊 业务视图</button>
+              <button class="tab" data-tab="resJson" onclick="switchResponseTab('resJson')">{ } JSON 数据</button>
+            </div>
+
+            <div class="tab-content active" id="resBizTab">
+              <div class="business-view" id="businessView">
+                <div class="response-placeholder">
+                  <div class="response-placeholder-icon">📡</div>
+                  <span>选择场景并发送请求以查看响应</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-content" id="resJsonTab">
+              <div class="response-output" id="responseOutput"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const scenarioMeta = {
+      restaurant: { icon: '🍜', name: '餐饮门店', color: '#f85149' },
+      factory: { icon: '🏭', name: '工厂产线', color: '#a371f7' },
+      housekeeping: { icon: '🏠', name: '家政服务', color: '#3fb950' },
+      nursing: { icon: '💊', name: '长护险/护理', color: '#58a6ff' }
+    };
+
+    const scenarioData = {
+      restaurant: {
+        method: 'POST',
+        endpoint: '/api/v1/schedule/generate',
+        body: {
+          org_id: "550e8400-e29b-41d4-a716-446655440000",
+          start_date: getTodayDate(),
+          end_date: getNextWeekDate(),
+          scenario: "restaurant",
+          employees: [
+            // 服务员团队（6人）- 早班晚班各需2人
+            { id: "550e8400-e29b-41d4-a716-446655440001", name: "张三", position: "服务员", skills: ["收银", "点餐", "传菜"], status: "active" },
+            { id: "550e8400-e29b-41d4-a716-446655440002", name: "李四", position: "服务员", skills: ["点餐", "传菜"], status: "active" },
+            { id: "550e8400-e29b-41d4-a716-446655440005", name: "钱七", position: "服务员", skills: ["收银"], status: "active" },
+            { id: "550e8400-e29b-41d4-a716-446655440006", name: "孙八", position: "服务员", skills: ["点餐", "传菜"], status: "active" },
+            { id: "550e8400-e29b-41d4-a716-446655440007", name: "周九", position: "服务员", skills: ["收银", "点餐"], status: "active" },
+            { id: "550e8400-e29b-41d4-a716-446655440008", name: "吴十", position: "服务员", skills: ["传菜"], status: "active" },
+            // 厨师团队（3人）- 早班晚班各需1人
+            { id: "550e8400-e29b-41d4-a716-446655440003", name: "王五", position: "厨师", skills: ["炒菜", "凉菜"], status: "active" },
+            { id: "550e8400-e29b-41d4-a716-446655440004", name: "赵六", position: "厨师", skills: ["炒菜", "面点"], status: "active" },
+            { id: "550e8400-e29b-41d4-a716-446655440009", name: "郑十一", position: "厨师", skills: ["炒菜", "凉菜", "面点"], status: "active" }
+          ],
+          shifts: [
+            { id: "550e8400-e29b-41d4-a716-446655440010", name: "早班", code: "M", start_time: "09:00", end_time: "14:00", duration: 300, type: "morning" },
+            { id: "550e8400-e29b-41d4-a716-446655440011", name: "午班", code: "A", start_time: "11:00", end_time: "14:00", duration: 180, type: "afternoon" },
+            { id: "550e8400-e29b-41d4-a716-446655440012", name: "晚班", code: "E", start_time: "17:00", end_time: "22:00", duration: 300, type: "evening" },
+            { id: "550e8400-e29b-41d4-a716-446655440013", name: "两头班", code: "S", start_time: "11:00", end_time: "21:00", duration: 480, type: "split" }
+          ],
+          requirements: generateRestaurantRequirements(),
+          constraints: { max_hours_per_week: 44, min_rest_hours: 11, max_consecutive_days: 6 },
+          options: { timeout_seconds: 30, optimization_level: 2, respect_preferences: true }
+        }
+      },
+      factory: {
+        method: 'POST',
+        endpoint: '/api/v1/schedule/generate',
+        body: {
+          org_id: "650e8400-e29b-41d4-a716-446655440000",
+          start_date: getTodayDate(),
+          end_date: getNextWeekDate(),
+          scenario: "factory",
+          employees: [
+            { id: "650e8400-e29b-41d4-a716-446655440001", name: "工人A", position: "操作工", skills: ["数控车床", "焊接"], status: "active" },
+            { id: "650e8400-e29b-41d4-a716-446655440002", name: "工人B", position: "操作工", skills: ["数控车床"], status: "active" },
+            { id: "650e8400-e29b-41d4-a716-446655440003", name: "工人C", position: "操作工", skills: ["焊接", "装配"], status: "active" },
+            { id: "650e8400-e29b-41d4-a716-446655440004", name: "工人D", position: "质检员", skills: ["质量检验"], status: "active" },
+            { id: "650e8400-e29b-41d4-a716-446655440005", name: "工人E", position: "操作工", skills: ["装配"], status: "active" },
+            { id: "650e8400-e29b-41d4-a716-446655440006", name: "工人F", position: "操作工", skills: ["数控车床", "装配"], status: "active" }
+          ],
+          shifts: [
+            { id: "650e8400-e29b-41d4-a716-446655440010", name: "白班", code: "D", start_time: "08:00", end_time: "16:00", duration: 480, type: "morning" },
+            { id: "650e8400-e29b-41d4-a716-446655440011", name: "中班", code: "S", start_time: "16:00", end_time: "00:00", duration: 480, type: "afternoon" },
+            { id: "650e8400-e29b-41d4-a716-446655440012", name: "夜班", code: "N", start_time: "00:00", end_time: "08:00", duration: 480, type: "night" }
+          ],
+          requirements: generateFactoryRequirements(),
+          constraints: { max_hours_per_week: 48, min_rest_hours: 8, max_consecutive_nights: 3 },
+          options: { timeout_seconds: 30, optimization_level: 2 }
+        }
+      },
+      housekeeping: {
+        method: 'POST',
+        endpoint: '/api/v1/schedule/generate',
+        body: {
+          org_id: "750e8400-e29b-41d4-a716-446655440000",
+          start_date: getTodayDate(),
+          end_date: getNextWeekDate(),
+          scenario: "housekeeping",
+          employees: [
+            { id: "750e8400-e29b-41d4-a716-446655440001", name: "阿姨A", position: "保洁员", skills: ["日常保洁", "开荒保洁"], status: "active" },
+            { id: "750e8400-e29b-41d4-a716-446655440002", name: "阿姨B", position: "保洁员", skills: ["日常保洁", "擦玻璃"], status: "active" },
+            { id: "750e8400-e29b-41d4-a716-446655440003", name: "阿姨C", position: "月嫂", skills: ["月嫂服务", "育儿嫂"], status: "active" },
+            { id: "750e8400-e29b-41d4-a716-446655440004", name: "阿姨D", position: "保洁员", skills: ["日常保洁"], status: "active" }
+          ],
+          shifts: [
+            { id: "750e8400-e29b-41d4-a716-446655440010", name: "上午时段", code: "AM", start_time: "08:00", end_time: "12:00", duration: 240, type: "morning" },
+            { id: "750e8400-e29b-41d4-a716-446655440011", name: "下午时段", code: "PM", start_time: "14:00", end_time: "18:00", duration: 240, type: "afternoon" },
+            { id: "750e8400-e29b-41d4-a716-446655440012", name: "全天服务", code: "FD", start_time: "08:00", end_time: "18:00", duration: 480, type: "morning" }
+          ],
+          requirements: generateHousekeepingRequirements(),
+          constraints: { max_orders_per_day: 3, skill_match_required: true },
+          options: { timeout_seconds: 30, respect_preferences: true }
+        }
+      },
+      nursing: {
+        method: 'POST',
+        endpoint: '/api/v1/schedule/generate',
+        body: {
+          org_id: "850e8400-e29b-41d4-a716-446655440000",
+          start_date: getTodayDate(),
+          end_date: getNextWeekDate(),
+          scenario: "nursing",
+          employees: [
+            { id: "850e8400-e29b-41d4-a716-446655440001", name: "护理员A", position: "护理员", skills: ["基础护理", "康复护理"], status: "active" },
+            { id: "850e8400-e29b-41d4-a716-446655440002", name: "护理员B", position: "护理员", skills: ["基础护理", "生活照料"], status: "active" },
+            { id: "850e8400-e29b-41d4-a716-446655440003", name: "护理员C", position: "高级护理员", skills: ["康复护理", "基础护理"], status: "active" },
+            { id: "850e8400-e29b-41d4-a716-446655440004", name: "护理员D", position: "护理员", skills: ["生活照料", "基础护理"], status: "active" }
+          ],
+          shifts: [
+            { id: "850e8400-e29b-41d4-a716-446655440010", name: "上午护理", code: "AM", start_time: "08:00", end_time: "12:00", duration: 240, type: "morning" },
+            { id: "850e8400-e29b-41d4-a716-446655440011", name: "下午护理", code: "PM", start_time: "14:00", end_time: "18:00", duration: 240, type: "afternoon" },
+            { id: "850e8400-e29b-41d4-a716-446655440012", name: "全日护理", code: "FD", start_time: "08:00", end_time: "17:00", duration: 480, type: "morning" }
+          ],
+          requirements: generateNursingRequirements(),
+          constraints: { continuity_required: true, max_patients_per_day: 4 },
+          options: { timeout_seconds: 30, optimization_level: 3 }
+        }
+      }
+    };
+
+    function getTodayDate() { return new Date().toISOString().split('T')[0]; }
+    function getNextWeekDate() { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().split('T')[0]; }
+    function getDateOffset(days) { const d = new Date(); d.setDate(d.getDate() + days); return d.toISOString().split('T')[0]; }
+    // 餐饮门店：合理排班需求（考虑10小时班次间休息约束，员工每天只上一个班次）
+    function generateRestaurantRequirements() {
+      const morningShift = "550e8400-e29b-41d4-a716-446655440010";  // 早班 9:00-14:00
+      const eveningShift = "550e8400-e29b-41d4-a716-446655440012";  // 晚班 17:00-22:00
+      
+      const reqs = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() + i);
+        const dayOfWeek = d.getDay();
+        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+        
+        // 服务员早班：每天2人
+        reqs.push({ shift_id: morningShift, date: getDateOffset(i), position: "服务员", min_employees: 2, priority: 8, note: "早班服务" });
+        // 服务员晚班：每天2人（周末需要3人）
+        reqs.push({ shift_id: eveningShift, date: getDateOffset(i), position: "服务员", min_employees: isWeekend ? 3 : 2, priority: 8, note: isWeekend ? "周末晚班" : "晚班服务" });
+        // 厨师早班：每天1人
+        reqs.push({ shift_id: morningShift, date: getDateOffset(i), position: "厨师", min_employees: 1, priority: 9, note: "早班备餐" });
+        // 厨师晚班：每天1人
+        reqs.push({ shift_id: eveningShift, date: getDateOffset(i), position: "厨师", min_employees: 1, priority: 9, note: "晚班备餐" });
+      }
+      return reqs;
+    }
+    function generateFactoryRequirements() {
+      const shifts = ["650e8400-e29b-41d4-a716-446655440010", "650e8400-e29b-41d4-a716-446655440011", "650e8400-e29b-41d4-a716-446655440012"];
+      const names = ["白班", "中班", "夜班"];
+      return Array.from({length: 7}, (_, i) => shifts.map((s, idx) => ({ shift_id: s, date: getDateOffset(i), min_employees: 2, priority: 9, note: names[idx] + "产线" }))).flat();
+    }
+    function generateHousekeepingRequirements() {
+      const reqs = [];
+      for (let i = 0; i < 7; i++) {
+        reqs.push({ shift_id: "750e8400-e29b-41d4-a716-446655440010", date: getDateOffset(i), position: "保洁员", min_employees: 2, priority: 7, note: "日常保洁订单" });
+        if (i % 2 === 0) {
+          reqs.push({ shift_id: "750e8400-e29b-41d4-a716-446655440011", date: getDateOffset(i), position: "保洁员", min_employees: 1, priority: 6, note: "下午保洁" });
+        }
+      }
+      return reqs;
+    }
+    function generateNursingRequirements() {
+      const reqs = [];
+      for (let i = 0; i < 7; i++) {
+        reqs.push({ shift_id: "850e8400-e29b-41d4-a716-446655440010", date: getDateOffset(i), position: "护理员", min_employees: 2, priority: 10, note: "上午护理" });
+        reqs.push({ shift_id: "850e8400-e29b-41d4-a716-446655440011", date: getDateOffset(i), position: "护理员", min_employees: 2, priority: 10, note: "下午护理" });
+      }
+      return reqs;
+    }
+
+    let currentScenario = 'restaurant';
+    let isLoading = false;
+    let lastResponse = null;
+
+    const serverUrlInput = document.getElementById('serverUrl');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const requestBody = document.getElementById('requestBody');
+    const requestBizView = document.getElementById('requestBizView');
+    const responseMeta = document.getElementById('responseMeta');
+    const resultsSummary = document.getElementById('resultsSummary');
+    const responseTabs = document.getElementById('responseTabs');
+    const businessView = document.getElementById('businessView');
+    const responseOutput = document.getElementById('responseOutput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    document.querySelectorAll('.scenario-card').forEach(card => {
+      card.addEventListener('click', () => selectScenario(card.dataset.scenario));
+    });
+
+    loadScenario('restaurant');
+    checkServerStatus();
+    setInterval(checkServerStatus, 30000);
+
+    function selectScenario(scenario) {
+      currentScenario = scenario;
+      document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('active'));
+      document.querySelector(`.scenario-card.${scenario}`).classList.add('active');
+      loadScenario(scenario);
+    }
+
+    function loadScenario(scenario) {
+      const data = scenarioData[scenario];
+      document.getElementById('requestMethod').textContent = data.method;
+      document.getElementById('requestMethod').className = `method-badge ${data.method.toLowerCase()}`;
+      document.getElementById('endpointMethod').textContent = data.method;
+      document.getElementById('endpointPath').textContent = data.endpoint;
+      requestBody.value = JSON.stringify(data.body, null, 2);
+      renderRequestBizView(data.body, scenario);
+    }
+
+    function renderRequestBizView(body, scenario) {
+      const meta = scenarioMeta[scenario];
+      const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+      let html = `
+        <div class="biz-section">
+          <div class="biz-section-title">📌 基本信息</div>
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="info-label">场景类型</div>
+              <div class="info-value" style="color: ${meta.color}">${meta.icon} ${meta.name}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">开始日期</div>
+              <div class="info-value cyan">${body.start_date}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">结束日期</div>
+              <div class="info-value cyan">${body.end_date}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">排班周期</div>
+              <div class="info-value green">${daysBetween(body.start_date, body.end_date)} 天</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="biz-section">
+          <div class="biz-section-title">👥 参与员工 (${body.employees.length} 人)</div>
+          <div class="item-grid">
+            ${body.employees.map(e => `
+              <div class="item-card">
+                <div class="item-name">👤 ${e.name}</div>
+                <div class="item-detail">${e.position || '员工'}</div>
+                ${e.skills?.length ? `<div class="item-tags">${e.skills.map(s => `<span class="item-tag">${s}</span>`).join('')}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="biz-section">
+          <div class="biz-section-title">🕐 班次设置 (${body.shifts.length} 个)</div>
+          <div class="item-grid">
+            ${body.shifts.map(s => `
+              <div class="item-card shift">
+                <div class="item-name">📅 ${s.name}</div>
+                <div class="item-detail">${s.start_time} - ${s.end_time} (${Math.round(s.duration/60)}h)</div>
+                <div class="item-tags"><span class="item-tag">${s.code}</span></div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="biz-section">
+          <div class="biz-section-title">📋 排班需求 (${body.requirements.length} 条)</div>
+          <div class="item-grid">
+            ${body.requirements.slice(0, 12).map(r => {
+              const d = new Date(r.date);
+              const shift = body.shifts?.find(s => s.id === r.shift_id);
+              const shiftName = shift ? shift.name : '';
+              return `
+                <div class="item-card requirement">
+                  <div class="item-name">${weekDays[d.getDay()]} ${r.date}</div>
+                  <div class="item-detail">${r.note || shiftName || '班次'}: ${r.min_employees} 人${r.position ? ` (${r.position})` : ''}</div>
+                  <div class="item-tags">
+                    ${shiftName ? `<span class="item-tag">${shiftName}</span>` : ''}
+                    <span class="item-tag">优先级 ${r.priority || 5}</span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+            ${body.requirements.length > 12 ? `<div class="item-card requirement" style="text-align: center; border-left-color: var(--text-muted);"><div class="item-detail">... 还有 ${body.requirements.length - 12} 条需求</div></div>` : ''}
+          </div>
+        </div>
+
+        <div class="biz-section">
+          <div class="biz-section-title">⚙️ 约束规则</div>
+          <div class="item-grid">
+            ${Object.entries(body.constraints || {}).map(([k, v]) => `
+              <div class="item-card constraint">
+                <div class="item-name">${constraintLabel(k)}</div>
+                <div class="item-detail" style="color: var(--accent-green); font-weight: 600;">${formatConstraintValue(k, v)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        ${body.options ? `
+        <div class="biz-section">
+          <div class="biz-section-title">🎛️ 计算选项</div>
+          <div class="info-grid">
+            ${body.options.timeout_seconds ? `<div class="info-item"><div class="info-label">超时时间</div><div class="info-value">${body.options.timeout_seconds} 秒</div></div>` : ''}
+            ${body.options.optimization_level ? `<div class="info-item"><div class="info-label">优化级别</div><div class="info-value">${['', '快速', '平衡', '最优'][body.options.optimization_level]}</div></div>` : ''}
+            ${body.options.respect_preferences !== undefined ? `<div class="info-item"><div class="info-label">考虑偏好</div><div class="info-value">${body.options.respect_preferences ? '是' : '否'}</div></div>` : ''}
+          </div>
+        </div>
+        ` : ''}
+      `;
+
+      requestBizView.innerHTML = html;
+    }
+
+    function constraintLabel(key) {
+      const labels = {
+        max_hours_per_week: '最大周工时',
+        min_rest_hours: '最小休息时间',
+        max_consecutive_days: '最大连续工作天数',
+        max_consecutive_nights: '最大连续夜班',
+        max_orders_per_day: '每日最大订单',
+        skill_match_required: '技能匹配',
+        continuity_required: '服务连续性',
+        max_patients_per_day: '每日最大患者数',
+        rotation_pattern: '倒班模式'
+      };
+      return labels[key] || key;
+    }
+
+    function formatConstraintValue(key, value) {
+      if (typeof value === 'boolean') return value ? '必须' : '不要求';
+      if (key.includes('hours')) return `${value} 小时`;
+      if (key.includes('days')) return `${value} 天`;
+      return value;
+    }
+
+    function daysBetween(start, end) {
+      const s = new Date(start);
+      const e = new Date(end);
+      return Math.ceil((e - s) / (1000 * 60 * 60 * 24)) + 1;
+    }
+
+    function switchMainTab(tabName) {
+      // Update main tab buttons
+      document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.main-tab[data-main-tab="${tabName}"]`)?.classList.add('active');
+      
+      // Update main tab content
+      document.querySelectorAll('.main-tab-content').forEach(c => c.classList.remove('active'));
+      document.getElementById(tabName + 'Content')?.classList.add('active');
+    }
+
+    function switchRequestTab(tabName) {
+      document.querySelectorAll('#requestContent .tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('#requestContent .tab-content').forEach(c => c.classList.remove('active'));
+      document.querySelector(`#requestContent .tab[data-tab="${tabName}"]`)?.classList.add('active');
+      document.getElementById(tabName + 'Tab')?.classList.add('active');
+
+      // Sync JSON when switching to JSON tab
+      if (tabName === 'reqJson') {
+        try { JSON.parse(requestBody.value); } catch(e) { /* keep existing */ }
+      }
+    }
+
+    function switchResponseTab(tabName) {
+      document.querySelectorAll('#responseTabs .tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('resBizTab').classList.remove('active');
+      document.getElementById('resJsonTab').classList.remove('active');
+      document.querySelector(`#responseTabs .tab[data-tab="${tabName}"]`)?.classList.add('active');
+      document.getElementById(tabName + 'Tab')?.classList.add('active');
+    }
+
+    async function checkServerStatus() {
+      const url = serverUrlInput.value;
+      try {
+        const response = await fetch(`${url}/health`);
+        if (response.ok) { statusDot.classList.remove('offline'); statusText.textContent = '服务正常'; }
+        else throw new Error();
+      } catch (e) { statusDot.classList.add('offline'); statusText.textContent = '无法连接'; }
+    }
+
+    async function sendRequest() {
+      if (isLoading) return;
+      const url = serverUrlInput.value;
+      const data = scenarioData[currentScenario];
+
+      let body;
+      try { body = JSON.parse(requestBody.value); }
+      catch (e) { showError('JSON 格式错误: ' + e.message); return; }
+
+      isLoading = true;
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '⏳ 请求中...';
+
+      const startTime = performance.now();
+
+      try {
+        const response = await fetch(`${url}${data.endpoint}`, {
+          method: data.method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const responseData = await response.json();
+        lastResponse = responseData;
+        showResponse(response.status, performance.now() - startTime, responseData);
+      } catch (e) { showError('请求失败: ' + e.message); }
+      finally {
+        isLoading = false;
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '🚀 发送请求';
+      }
+    }
+
+    function showResponse(status, time, data) {
+      // Auto switch to response tab
+      switchMainTab('response');
+      
+      // Update status badge on main tab
+      const statusBadge = document.getElementById('responseStatusBadge');
+      const indicator = document.getElementById('responseIndicator');
+      if (status >= 200 && status < 300) {
+        statusBadge.className = 'status-badge success';
+        statusBadge.textContent = '✓';
+        indicator.style.display = 'inline';
+      } else {
+        statusBadge.className = 'status-badge error';
+        statusBadge.textContent = '✗';
+        indicator.style.display = 'none';
+      }
+
+      responseMeta.style.display = 'flex';
+      const statusEl = document.getElementById('responseStatus');
+      statusEl.textContent = status;
+      statusEl.className = 'response-meta-value ' + (status >= 200 && status < 300 ? 'success' : 'error');
+      document.getElementById('responseTime').textContent = time.toFixed(0) + 'ms';
+      document.getElementById('responseSize').textContent = formatBytes(JSON.stringify(data).length);
+
+      if (data.assignments !== undefined) {
+        resultsSummary.style.display = 'grid';
+        responseTabs.style.display = 'flex';
+        document.getElementById('summaryAssignments').textContent = data.assignments?.length || 0;
+        document.getElementById('summaryFillRate').textContent = (data.statistics?.fill_rate?.toFixed(1) || '0') + '%';
+        document.getElementById('summaryScore').textContent = data.constraint_result?.score?.toFixed(1) || '0';
+        document.getElementById('summaryDuration').textContent = data.duration || '-';
+        renderResponseBizView(data);
+      } else {
+        resultsSummary.style.display = 'none';
+        responseTabs.style.display = 'none';
+        businessView.innerHTML = renderGenericBizView(data);
+      }
+
+      responseOutput.innerHTML = syntaxHighlight(JSON.stringify(data, null, 2));
+      switchResponseTab('resBiz');
+    }
+
+    function renderResponseBizView(data) {
+      const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      const msgClass = data.success ? (data.partial ? 'partial' : 'success') : 'error';
+      const msgIcon = data.success ? (data.partial ? '⚠️' : '✅') : '❌';
+
+      let html = `
+        <div class="biz-section">
+          <div class="biz-message ${msgClass}">
+            <span style="font-size: 1.5rem;">${msgIcon}</span>
+            <span>${data.message || (data.success ? '排班生成成功' : '排班失败')}</span>
+          </div>
+        </div>
+      `;
+
+      if (data.statistics) {
+        const s = data.statistics;
+        html += `
+          <div class="biz-section">
+            <div class="biz-section-title">📈 统计摘要</div>
+            <div class="stats-grid">
+              <div class="stat-card"><div class="stat-label">总排班数</div><div class="stat-value green">${s.total_assignments || 0}</div><div class="stat-desc">已安排的班次</div></div>
+              <div class="stat-card"><div class="stat-label">需求满足</div><div class="stat-value cyan">${s.filled_requirements || 0} / ${s.total_requirements || 0}</div><div class="stat-desc">满足率 ${(s.fill_rate || 0).toFixed(1)}%</div></div>
+              <div class="stat-card"><div class="stat-label">总工时</div><div class="stat-value orange">${s.total_hours || 0}h</div><div class="stat-desc">人均 ${(s.avg_hours_per_employee || 0).toFixed(1)}h</div></div>
+              <div class="stat-card"><div class="stat-label">迭代次数</div><div class="stat-value purple">${s.iterations || 0}</div><div class="stat-desc">算法轮次</div></div>
+            </div>
+          </div>
+        `;
+      }
+
+      if (data.constraint_result) {
+        const cr = data.constraint_result;
+        html += `
+          <div class="biz-section">
+            <div class="biz-section-title">✅ 约束检查</div>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+              <div class="constraint-badge ${cr.is_valid ? 'valid' : 'invalid'}">${cr.is_valid ? '✓ 所有硬约束满足' : '✗ 存在约束违规'}</div>
+              <span style="color: var(--text-secondary);">得分: <strong style="color: var(--accent-cyan);">${(cr.score || 0).toFixed(1)}</strong>/100</span>
+            </div>
+        `;
+        
+        // 显示硬约束违规详情
+        if (cr.hard_violations && cr.hard_violations.length > 0) {
+          html += `
+            <div class="violations-container">
+              <div class="violations-header">
+                <span class="violations-icon">⚠️</span>
+                <span class="violations-title">硬约束违规详情 (${cr.hard_violations.length}项)</span>
+              </div>
+              <div class="violations-list">
+          `;
+          
+          // 按约束类型分组
+          const byType = {};
+          cr.hard_violations.forEach(v => {
+            const type = v.constraint_name || v.constraint_type;
+            if (!byType[type]) byType[type] = [];
+            byType[type].push(v);
+          });
+          
+          Object.keys(byType).forEach(type => {
+            const violations = byType[type];
+            html += `
+              <div class="violation-group">
+                <div class="violation-rule">
+                  <span class="violation-rule-icon">📋</span>
+                  <span class="violation-rule-name">${type}</span>
+                  <span class="violation-count">${violations.length}项违规</span>
+                </div>
+                <div class="violation-items">
+            `;
+            
+            violations.forEach(v => {
+              html += `
+                <div class="violation-item">
+                  <span class="violation-severity ${v.severity === 'error' ? 'error' : 'warning'}">
+                    ${v.severity === 'error' ? '❌' : '⚠️'}
+                  </span>
+                  <span class="violation-message">${v.message}</span>
+                  <span class="violation-penalty">-${v.penalty}分</span>
+                </div>
+              `;
+            });
+            
+            html += `</div></div>`;
+          });
+          
+          html += `</div></div>`;
+        }
+        
+        // 显示软约束违规（如果有）
+        if (cr.soft_violations && cr.soft_violations.length > 0) {
+          html += `
+            <div class="violations-container soft">
+              <div class="violations-header">
+                <span class="violations-icon">💡</span>
+                <span class="violations-title">软约束提醒 (${cr.soft_violations.length}项)</span>
+              </div>
+              <div class="violations-list">
+          `;
+          
+          cr.soft_violations.forEach(v => {
+            html += `
+              <div class="violation-item soft">
+                <span class="violation-severity warning">💡</span>
+                <span class="violation-message">${v.message}</span>
+                <span class="violation-penalty">-${v.penalty}分</span>
+              </div>
+            `;
+          });
+          
+          html += `</div></div>`;
+        }
+        
+        html += `</div>`;
+      }
+
+      if (data.assignments?.length) {
+        const byDay = {};
+        data.assignments.forEach(a => { if (!byDay[a.date]) byDay[a.date] = []; byDay[a.date].push(a); });
+
+        html += `<div class="biz-section"><div class="biz-section-title">📋 排班详情</div>`;
+        Object.keys(byDay).sort().forEach(date => {
+          const d = new Date(date);
+          html += `
+            <div class="day-group">
+              <div class="day-header"><span class="day-badge">${weekDays[d.getDay()]}</span><span>${date}</span><span style="color: var(--text-muted);">(${byDay[date].length}个)</span></div>
+              <div class="assignment-cards">
+                ${byDay[date].map(a => `
+                  <div class="assignment-card">
+                    <div class="assignment-emp">👤 ${a.employee_name}</div>
+                    <div class="assignment-detail"><span class="assignment-shift">${a.shift_name}</span><span>${a.start_time}-${a.end_time}</span><span style="color:var(--accent-green)">${a.hours}h</span></div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        });
+        html += '</div>';
+      }
+
+      businessView.innerHTML = html;
+    }
+
+    function renderGenericBizView(data) {
+      if (data.status === 'ok') return `<div class="biz-section"><div class="biz-message success"><span style="font-size:1.5rem">✅</span><span>服务正常运行</span></div></div>`;
+      if (data.templates) return renderConstraintTemplates(data.templates);
+      if (data.library) return renderConstraintLibrary(data.library);
+      if (data.version) return `<div class="biz-section"><div class="biz-section-title">📋 版本</div><div class="info-grid"><div class="info-item"><div class="info-label">版本</div><div class="info-value cyan">${data.version}</div></div></div></div>`;
+      return `<div style="text-align: center; padding: 2rem; color: var(--text-muted);">💡 请切换到 JSON 查看详情</div>`;
+    }
+
+    // 存储模板数据用于编辑
+    let constraintTemplatesData = [];
+
+    function renderConstraintTemplates(templates) {
+      constraintTemplatesData = JSON.parse(JSON.stringify(templates)); // 深拷贝
+      
+      let html = `<div class="biz-section"><div class="biz-section-title">📐 约束模板列表 (${templates.length}个场景)</div>`;
+      
+      templates.forEach((t, idx) => {
+        const scenarioIcons = {restaurant: '🍜', factory: '🏭', housekeeping: '🏠', nursing: '💊'};
+        const icon = scenarioIcons[t.scenario] || '📋';
+        
+        // 按类型分组约束
+        const hardConstraints = (t.constraints || []).filter(c => c.type === 'hard');
+        const softConstraints = (t.constraints || []).filter(c => c.type === 'soft');
+        
+        html += `
+          <div class="template-card" id="template-${idx}">
+            <div class="template-header" onclick="toggleTemplate(${idx})">
+              <div class="template-icon">${icon}</div>
+              <div class="template-info">
+                <div class="template-name">${t.name}</div>
+                <div class="template-desc">${t.description}</div>
+              </div>
+              <div class="template-toggle">
+                <span class="template-count">${(t.constraints || []).length} 条约束</span>
+                <span class="template-arrow" id="arrow-${idx}">▼</span>
+              </div>
+            </div>
+            <div class="template-body" id="body-${idx}" style="display: none;">
+              <div class="template-actions">
+                <button class="template-action-btn edit" onclick="event.stopPropagation(); toggleEditMode(${idx})">
+                  <span id="editIcon-${idx}">✏️</span> <span id="editText-${idx}">编辑</span>
+                </button>
+                <button class="template-action-btn cancel" id="cancelBtn-${idx}" style="display: none;" onclick="event.stopPropagation(); cancelEditMode(${idx})">
+                  ❌ 取消
+                </button>
+                <button class="template-action-btn add" onclick="event.stopPropagation(); showAddFromLibrary(${idx}, '${t.scenario}')">
+                  📚 从约束库添加
+                </button>
+                <button class="template-action-btn apply" onclick="event.stopPropagation(); applyTemplate('${t.scenario}', ${idx})">
+                  ✅ 应用到当前配置
+                </button>
+              </div>
+              <div class="add-constraint-form" id="addForm-${idx}" style="display: none;">
+                <div class="form-title">➕ 新增约束条件</div>
+                <div class="form-row">
+                  <label>约束类型</label>
+                  <select id="newType-${idx}" class="form-select">
+                    <option value="hard">硬约束（必须满足）</option>
+                    <option value="soft">软约束（尽量满足）</option>
+                  </select>
+                </div>
+                <div class="form-row">
+                  <label>约束名称</label>
+                  <input type="text" id="newName-${idx}" class="form-input" placeholder="如: custom_rule_1">
+                </div>
+                <div class="form-row">
+                  <label>约束描述</label>
+                  <input type="text" id="newDesc-${idx}" class="form-input" placeholder="如: 自定义规则描述">
+                </div>
+                <div class="form-row">
+                  <label>约束分类</label>
+                  <input type="text" id="newCategory-${idx}" class="form-input" placeholder="如: 工时限制">
+                </div>
+                <div class="form-row">
+                  <label>默认值</label>
+                  <input type="text" id="newDefault-${idx}" class="form-input" placeholder="如: 8小时">
+                </div>
+                <div class="form-actions">
+                  <button class="form-btn cancel" onclick="hideAddConstraintForm(${idx})">取消</button>
+                  <button class="form-btn submit" onclick="addNewConstraint(${idx})">添加</button>
+                </div>
+              </div>
+        `;
+        
+        if (hardConstraints.length > 0) {
+          html += `
+            <div class="constraint-group">
+              <div class="constraint-group-title">
+                <span class="constraint-type-badge hard">硬约束</span>
+                <span class="constraint-group-desc">必须满足，违反将导致排班无效</span>
+              </div>
+              <div class="constraint-list">
+          `;
+          hardConstraints.forEach((c, cIdx) => {
+            const fullIdx = `${idx}-hard-${cIdx}`;
+            html += `
+              <div class="constraint-item" id="constraint-${fullIdx}">
+                <div class="constraint-name">${c.description}</div>
+                <div class="constraint-meta">
+                  <span class="constraint-category">${c.category}</span>
+                  <span class="constraint-default" id="default-${fullIdx}">${c.default}</span>
+                  <input type="text" class="constraint-input" id="input-${fullIdx}" value="${c.default}" style="display:none;" data-name="${c.name}">
+                  <button class="constraint-delete-btn" onclick="event.stopPropagation(); deleteConstraint(${idx}, 'hard', ${cIdx})" title="删除此约束">🗑️</button>
+                </div>
+              </div>
+            `;
+          });
+          html += `</div></div>`;
+        }
+        
+        if (softConstraints.length > 0) {
+          html += `
+            <div class="constraint-group">
+              <div class="constraint-group-title">
+                <span class="constraint-type-badge soft">软约束</span>
+                <span class="constraint-group-desc">尽量满足，用于优化排班质量</span>
+              </div>
+              <div class="constraint-list">
+          `;
+          softConstraints.forEach((c, cIdx) => {
+            const fullIdx = `${idx}-soft-${cIdx}`;
+            html += `
+              <div class="constraint-item soft" id="constraint-${fullIdx}">
+                <div class="constraint-name">${c.description}</div>
+                <div class="constraint-meta">
+                  <span class="constraint-category">${c.category}</span>
+                  <span class="constraint-default" id="default-${fullIdx}">${c.default}</span>
+                  <input type="text" class="constraint-input" id="input-${fullIdx}" value="${c.default}" style="display:none;" data-name="${c.name}">
+                  <button class="constraint-delete-btn" onclick="event.stopPropagation(); deleteConstraint(${idx}, 'soft', ${cIdx})" title="删除此约束">🗑️</button>
+                </div>
+              </div>
+            `;
+          });
+          html += `</div></div>`;
+        }
+        
+        html += `</div></div>`;
+      });
+      
+      html += '</div>';
+      return html;
+    }
+
+    function toggleTemplate(idx) {
+      const body = document.getElementById('body-' + idx);
+      const arrow = document.getElementById('arrow-' + idx);
+      if (body.style.display === 'none') {
+        body.style.display = 'block';
+        arrow.textContent = '▲';
+      } else {
+        body.style.display = 'none';
+        arrow.textContent = '▼';
+      }
+    }
+
+    // 编辑模式状态
+    const editModeState = {};
+
+    // 存储原始值用于取消恢复
+    const originalValues = {};
+
+    function toggleEditMode(idx) {
+      const isEditing = editModeState[idx];
+      const card = document.getElementById('template-' + idx);
+      const defaults = card.querySelectorAll('.constraint-default');
+      const inputs = card.querySelectorAll('.constraint-input');
+      const editIcon = document.getElementById('editIcon-' + idx);
+      const editText = document.getElementById('editText-' + idx);
+      const cancelBtn = document.getElementById('cancelBtn-' + idx);
+
+      if (!isEditing) {
+        // 保存原始值用于取消恢复
+        originalValues[idx] = [];
+        defaults.forEach(el => originalValues[idx].push(el.textContent));
+        
+        // 进入编辑模式
+        defaults.forEach(el => el.style.display = 'none');
+        inputs.forEach(el => el.style.display = 'inline-block');
+        editIcon.textContent = '💾';
+        editText.textContent = '保存';
+        cancelBtn.style.display = 'inline-flex';
+        editModeState[idx] = true;
+      } else {
+        // 保存并退出编辑模式
+        inputs.forEach((input, i) => {
+          defaults[i].textContent = input.value;
+          defaults[i].style.display = 'inline';
+          input.style.display = 'none';
+        });
+        editIcon.textContent = '✏️';
+        editText.textContent = '编辑';
+        cancelBtn.style.display = 'none';
+        editModeState[idx] = false;
+        
+        // 显示保存成功提示
+        showToast('✅ 约束配置已保存');
+      }
+    }
+
+    function cancelEditMode(idx) {
+      const card = document.getElementById('template-' + idx);
+      const defaults = card.querySelectorAll('.constraint-default');
+      const inputs = card.querySelectorAll('.constraint-input');
+      const editIcon = document.getElementById('editIcon-' + idx);
+      const editText = document.getElementById('editText-' + idx);
+      const cancelBtn = document.getElementById('cancelBtn-' + idx);
+
+      // 恢复原始值
+      if (originalValues[idx]) {
+        defaults.forEach((el, i) => {
+          el.textContent = originalValues[idx][i] || el.textContent;
+          el.style.display = 'inline';
+        });
+        inputs.forEach((input, i) => {
+          input.value = originalValues[idx][i] || input.value;
+          input.style.display = 'none';
+        });
+      }
+
+      editIcon.textContent = '✏️';
+      editText.textContent = '编辑';
+      cancelBtn.style.display = 'none';
+      editModeState[idx] = false;
+      
+      showToast('🔄 已取消编辑');
+    }
+
+    function applyTemplate(scenario, idx) {
+      // 获取当前模板的约束值
+      const card = document.getElementById('template-' + idx);
+      const inputs = card.querySelectorAll('.constraint-input');
+      
+      // 构建约束配置对象
+      const constraintConfig = {};
+      inputs.forEach(input => {
+        const name = input.dataset.name;
+        const value = input.value;
+        // 解析数值
+        const numMatch = value.match(/(\d+)/);
+        if (numMatch) {
+          constraintConfig[name] = parseInt(numMatch[1]);
+        } else {
+          constraintConfig[name] = value;
+        }
+      });
+
+      // 尝试更新当前请求体的约束配置
+      try {
+        const currentReq = JSON.parse(requestBody.value);
+        if (!currentReq.constraints) currentReq.constraints = {};
+        if (!currentReq.constraints.config) currentReq.constraints.config = {};
+        
+        // 应用约束配置
+        Object.assign(currentReq.constraints.config, constraintConfig);
+        currentReq.scenario = scenario;
+        
+        requestBody.value = JSON.stringify(currentReq, null, 2);
+        loadScenario(scenario === 'nursing' ? 'nursing' : scenario); // 刷新业务视图
+        
+        showToast(`已应用 ${constraintTemplatesData[idx].name} 到当前配置`);
+        
+        // 切换到请求配置tab
+        switchMainTab('request');
+      } catch (e) {
+        showToast('应用失败: ' + e.message, 'error');
+      }
+    }
+
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = 'toast ' + type;
+      toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span> ${message}`;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => toast.classList.add('show'), 10);
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 2000);
+    }
+
+    function showAddConstraintForm(idx) {
+      const form = document.getElementById('addForm-' + idx);
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function hideAddConstraintForm(idx) {
+      const form = document.getElementById('addForm-' + idx);
+      form.style.display = 'none';
+      // 清空表单
+      document.getElementById('newType-' + idx).value = 'hard';
+      document.getElementById('newName-' + idx).value = '';
+      document.getElementById('newDesc-' + idx).value = '';
+      document.getElementById('newCategory-' + idx).value = '';
+      document.getElementById('newDefault-' + idx).value = '';
+    }
+
+    // 从约束库添加约束
+    async function showAddFromLibrary(templateIdx, scenario) {
+      // 如果约束库数据为空，先获取
+      if (constraintLibraryData.length === 0) {
+        const url = serverUrlInput.value;
+        try {
+          const response = await fetch(`${url}/api/v1/constraints/library`);
+          const data = await response.json();
+          constraintLibraryData = data.library || [];
+        } catch(e) {
+          showToast('获取约束库失败', 'error');
+          return;
+        }
+      }
+
+      // 获取当前模板已有的约束名称
+      const template = constraintTemplatesData[templateIdx];
+      const existingNames = (template.constraints || []).map(c => c.name);
+
+      // 筛选适用于当前场景的约束，排除已存在的
+      const available = constraintLibraryData.filter(c => 
+        c.scenarios.includes(scenario) && !existingNames.includes(c.name)
+      );
+
+      if (available.length === 0) {
+        showToast('该场景没有更多可添加的约束');
+        return;
+      }
+
+      // 构建选择对话框
+      const modal = document.createElement('div');
+      modal.className = 'library-modal';
+      modal.id = 'libraryModal';
+      modal.innerHTML = `
+        <div class="library-modal-content">
+          <div class="library-modal-header">
+            <span>📚 从约束库添加 - ${scenario}</span>
+            <button onclick="closeLibraryModal()" class="library-modal-close">✕</button>
+          </div>
+          <div class="library-modal-body">
+            ${available.map((c, i) => `
+              <div class="library-select-item" onclick="selectConstraintFromLibrary(${templateIdx}, '${c.name}')">
+                <div class="library-select-header">
+                  <span class="constraint-type-badge ${c.type}">${c.type === 'hard' ? '硬' : '软'}</span>
+                  <span class="library-select-name">${c.display_name}</span>
+                </div>
+                <div class="library-select-desc">${c.description}</div>
+                <div class="library-select-params">
+                  ${c.params && c.params.length > 0 
+                    ? c.params.map(p => `<span class="param-badge">${p.name}: ${p.default}</span>`).join('') 
+                    : '<span class="param-badge">无参数</span>'}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    function closeLibraryModal() {
+      const modal = document.getElementById('libraryModal');
+      if (modal) modal.remove();
+    }
+
+    function selectConstraintFromLibrary(templateIdx, constraintName) {
+      const libConstraint = constraintLibraryData.find(c => c.name === constraintName);
+      if (!libConstraint) return;
+
+      // 构建默认值字符串
+      const defaultValue = libConstraint.params && libConstraint.params.length > 0
+        ? libConstraint.params.map(p => p.default).join(', ')
+        : '启用';
+
+      // 创建新约束
+      const newConstraint = {
+        name: libConstraint.name,
+        type: libConstraint.type,
+        category: libConstraint.category,
+        description: libConstraint.display_name,
+        default: defaultValue
+      };
+
+      // 添加到模板
+      if (!constraintTemplatesData[templateIdx].constraints) {
+        constraintTemplatesData[templateIdx].constraints = [];
+      }
+      constraintTemplatesData[templateIdx].constraints.push(newConstraint);
+
+      // 关闭模态框并刷新
+      closeLibraryModal();
+      refreshTemplateDisplay(templateIdx);
+      showToast(`已添加约束: ${libConstraint.display_name}`);
+    }
+
+    function addNewConstraint(idx) {
+      const type = document.getElementById('newType-' + idx).value;
+      const name = document.getElementById('newName-' + idx).value.trim();
+      const desc = document.getElementById('newDesc-' + idx).value.trim();
+      const category = document.getElementById('newCategory-' + idx).value.trim();
+      const defaultVal = document.getElementById('newDefault-' + idx).value.trim();
+
+      if (!name || !desc || !category || !defaultVal) {
+        showToast('请填写所有字段', 'error');
+        return;
+      }
+
+      // 创建新约束对象
+      const newConstraint = {
+        name: name,
+        type: type,
+        category: category,
+        description: desc,
+        default: defaultVal
+      };
+
+      // 添加到模板数据
+      if (!constraintTemplatesData[idx].constraints) {
+        constraintTemplatesData[idx].constraints = [];
+      }
+      constraintTemplatesData[idx].constraints.push(newConstraint);
+
+      // 重新渲染模板列表并保持展开状态
+      const templatesContainer = document.querySelector('.biz-section');
+      templatesContainer.innerHTML = renderConstraintTemplates(constraintTemplatesData).replace('<div class="biz-section">', '').replace(/<\/div>$/, '');
+      
+      // 重新展开当前模板
+      const body = document.getElementById('body-' + idx);
+      const arrow = document.getElementById('arrow-' + idx);
+      if (body) {
+        body.style.display = 'block';
+        arrow.textContent = '▲';
+      }
+
+      showToast(`已添加新${type === 'hard' ? '硬' : '软'}约束: ${desc}`);
+    }
+
+    // 删除约束
+    function deleteConstraint(templateIdx, type, constraintIdx) {
+      const template = constraintTemplatesData[templateIdx];
+      if (!template || !template.constraints) return;
+
+      // 找到并删除对应类型的约束
+      const constraints = template.constraints.filter(c => c.type === type);
+      if (constraintIdx >= 0 && constraintIdx < constraints.length) {
+        const targetConstraint = constraints[constraintIdx];
+        const originalIdx = template.constraints.indexOf(targetConstraint);
+        if (originalIdx > -1) {
+          const deletedName = template.constraints[originalIdx].description;
+          template.constraints.splice(originalIdx, 1);
+          
+          // 重新渲染模板
+          refreshTemplateDisplay(templateIdx);
+          showToast(`已删除约束: ${deletedName}`);
+        }
+      }
+    }
+
+    // 刷新模板显示
+    function refreshTemplateDisplay(templateIdx) {
+      const container = document.querySelector('.biz-section');
+      if (container) {
+        const newHtml = renderConstraintTemplates(constraintTemplatesData);
+        container.outerHTML = newHtml;
+        // 重新展开模板
+        setTimeout(() => {
+          const body = document.getElementById('body-' + templateIdx);
+          const arrow = document.getElementById('arrow-' + templateIdx);
+          if (body) {
+            body.style.display = 'block';
+            arrow.textContent = '▲';
+          }
+        }, 50);
+      }
+    }
+
+    function showError(message) {
+      // Auto switch to response tab
+      switchMainTab('response');
+      
+      // Update status badge on main tab
+      const statusBadge = document.getElementById('responseStatusBadge');
+      const indicator = document.getElementById('responseIndicator');
+      statusBadge.className = 'status-badge error';
+      statusBadge.textContent = '✗';
+      indicator.style.display = 'none';
+
+      responseMeta.style.display = 'flex';
+      document.getElementById('responseStatus').textContent = 'ERROR';
+      document.getElementById('responseStatus').className = 'response-meta-value error';
+      resultsSummary.style.display = 'none';
+      responseTabs.style.display = 'none';
+      businessView.innerHTML = `<div class="biz-section"><div class="biz-message error"><span style="font-size:1.5rem">❌</span><span>${message}</span></div></div>`;
+    }
+
+    function syntaxHighlight(json) {
+      return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+        m => `<span class="${/^"/.test(m) ? (/:$/.test(m) ? 'json-key' : 'json-string') : /true|false/.test(m) ? 'json-boolean' : /null/.test(m) ? 'json-null' : 'json-number'}">${m}</span>`);
+    }
+
+    function formatBytes(bytes) { return bytes < 1024 ? bytes + ' B' : bytes < 1048576 ? (bytes/1024).toFixed(1) + ' KB' : (bytes/1048576).toFixed(1) + ' MB'; }
+    function formatRequest() { try { requestBody.value = JSON.stringify(JSON.parse(requestBody.value), null, 2); } catch(e) { alert('JSON错误: ' + e.message); } }
+    function resetRequest() { loadScenario(currentScenario); }
+    function clearResponse() {
+      // Reset status badge on main tab
+      const statusBadge = document.getElementById('responseStatusBadge');
+      const indicator = document.getElementById('responseIndicator');
+      statusBadge.className = 'status-badge waiting';
+      statusBadge.textContent = '⏳';
+      indicator.style.display = 'none';
+
+      responseMeta.style.display = 'none';
+      resultsSummary.style.display = 'none';
+      responseTabs.style.display = 'none';
+      businessView.innerHTML = `<div class="response-placeholder"><div class="response-placeholder-icon">📡</div><span>选择场景并发送请求</span></div>`;
+      responseOutput.innerHTML = '';
+      lastResponse = null;
+    }
+    function copyResponse() { if (lastResponse) { navigator.clipboard.writeText(JSON.stringify(lastResponse, null, 2)); alert('已复制'); } }
+
+    async function checkHealth() {
+      const url = serverUrlInput.value;
+      const startTime = performance.now();
+      try {
+        const response = await fetch(`${url}/health`);
+        const data = await response.json();
+        lastResponse = data;
+        showResponse(response.status, performance.now() - startTime, data);
+      } catch(e) { showError('健康检查失败: ' + e.message); }
+    }
+
+    async function getVersion() {
+      const url = serverUrlInput.value;
+      const startTime = performance.now();
+      try {
+        const response = await fetch(`${url}/version`);
+        const data = await response.json();
+        lastResponse = data;
+        showResponse(response.status, performance.now() - startTime, data);
+      } catch(e) { showError('获取版本失败: ' + e.message); }
+    }
+
+    async function getConstraintTemplates() {
+      const url = serverUrlInput.value;
+      const startTime = performance.now();
+      try {
+        const response = await fetch(`${url}/api/v1/constraints/templates`);
+        const data = await response.json();
+        lastResponse = data;
+        showResponse(response.status, performance.now() - startTime, data);
+      } catch(e) { showError('获取模板失败: ' + e.message); }
+    }
+
+    // 约束库数据（用于从库中添加约束）
+    let constraintLibraryData = [];
+
+    async function getConstraintLibrary() {
+      const url = serverUrlInput.value;
+      const startTime = performance.now();
+      try {
+        const response = await fetch(`${url}/api/v1/constraints/library`);
+        const data = await response.json();
+        constraintLibraryData = data.library || [];
+        lastResponse = data;
+        showResponse(response.status, performance.now() - startTime, data);
+        switchMainTab('response');
+      } catch(e) { showError('获取约束库失败: ' + e.message); }
+    }
+
+    // 渲染约束库
+    function renderConstraintLibrary(library) {
+      const scenarioNames = {
+        restaurant: '🍜 餐饮',
+        factory: '🏭 工厂',
+        housekeeping: '🏠 家政',
+        nursing: '💊 长护险'
+      };
+
+      // 按类别分组
+      const grouped = {};
+      library.forEach(c => {
+        if (!grouped[c.category]) grouped[c.category] = [];
+        grouped[c.category].push(c);
+      });
+
+      let html = `<div class="biz-section"><div class="biz-section-title">📚 约束库 - 后端支持的所有约束 (${library.length}项)</div>`;
+      html += `<p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">💡 这些是后端实际支持的约束规则，可用于配置排班请求。</p>`;
+
+      Object.entries(grouped).forEach(([category, constraints]) => {
+        html += `
+          <div class="library-category">
+            <div class="library-category-header">${category} (${constraints.length})</div>
+            <div class="library-constraints">
+        `;
+        constraints.forEach(c => {
+          const scenarioTags = c.scenarios.map(s => `<span class="scenario-tag">${scenarioNames[s] || s}</span>`).join('');
+          const paramList = c.params && c.params.length > 0 
+            ? c.params.map(p => `<span class="param-badge" title="${p.description}">${p.name}: ${p.default}</span>`).join('')
+            : '<span class="param-badge">无参数</span>';
+          
+          html += `
+            <div class="library-item ${c.type}">
+              <div class="library-item-header">
+                <span class="constraint-type-badge ${c.type}">${c.type === 'hard' ? '硬' : '软'}</span>
+                <span class="library-item-name">${c.display_name}</span>
+                <code class="library-item-code">${c.name}</code>
+              </div>
+              <div class="library-item-desc">${c.description}</div>
+              <div class="library-item-meta">
+                <div class="scenario-tags">${scenarioTags}</div>
+                <div class="param-list">${paramList}</div>
+              </div>
+            </div>
+          `;
+        });
+        html += `</div></div>`;
+      });
+
+      html += '</div>';
+      return html;
+    }
+
+    serverUrlInput.addEventListener('change', checkServerStatus);
+  </script>
+</body>
+</html>

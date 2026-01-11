@@ -1,0 +1,56 @@
+# PaiBan 排班引擎配置文件
+# ====================================
+
+# 应用配置
+app:
+  name: paiban
+  env: ${APP_ENV:development}  # development/test/production
+  port: ${APP_PORT:7012}
+  log_level: ${APP_LOG_LEVEL:debug}  # debug/info/warn/error
+
+# 数据库配置
+database:
+  host: ${DB_HOST:localhost}
+  port: ${DB_PORT:5432}
+  name: ${DB_NAME:paiban}
+  user: ${DB_USER:paiban}
+  password: ${DB_PASSWORD:paiban123}
+  ssl_mode: ${DB_SSL_MODE:disable}
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 5m
+
+# Redis 配置
+redis:
+  host: ${REDIS_HOST:localhost}
+  port: ${REDIS_PORT:6379}
+  password: ${REDIS_PASSWORD:}
+  db: ${REDIS_DB:0}
+  pool_size: 10
+
+# API 配置
+api:
+  rate_limit: ${API_RATE_LIMIT:100}  # QPS
+  timeout: ${API_TIMEOUT:30s}
+  cors:
+    enabled: true
+    origins:
+      - "*"
+
+# 排班引擎配置
+scheduler:
+  default_timeout: 30s
+  max_iterations: 1000
+  optimization_level: 2  # 1=快速, 2=平衡, 3=最优
+
+# 派单引擎配置
+dispatcher:
+  default_timeout: 5s
+  optimize_route: true
+  max_distance_km: 15
+
+# 监控配置
+metrics:
+  enabled: true
+  path: /metrics
+

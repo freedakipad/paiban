@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: paiban-config
+  namespace: paiban
+data:
+  APP_NAME: "paiban"
+  APP_ENV: "production"
+  APP_PORT: "7012"
+  LOG_LEVEL: "info"
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "paiban"
+  DB_MAX_CONNECTIONS: "100"
+  DB_IDLE_CONNECTIONS: "10"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+

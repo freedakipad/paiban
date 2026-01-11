@@ -1,0 +1,551 @@
+openapi: 3.0.3
+info:
+  title: PaiBan 排班引擎 API
+  description: |
+    PaiBan 是一个通用排班引擎服务，支持餐饮、工厂、家政、长护险等多种场景的智能排班。
+    
+    ## 功能特点
+    - 🔧 可配置的约束系统（硬约束/软约束）
+    - 🎯 智能排班生成与优化
+    - ✅ 排班冲突检测与验证
+    - 📊 工作量统计与公平性分析
+    
+    ## 使用场景
+    - **餐饮门店**: 支持高峰期排班、两头班等
+    - **工厂产线**: 支持三班倒、倒班模式
+    - **家政服务**: 支持派单优化、路线规划
+    - **长护险**: 支持护理计划、服务连续性
+  version: 1.0.0
+  contact:
+    name: PaiBan Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:7012
+    description: 本地开发环境
+  - url: https://api.paiban.example.com
+    description: 生产环境
+
+tags:
+  - name: System
+    description: 系统状态相关接口
+  - name: Schedule
+    description: 排班生成与管理
+  - name: Constraints
+    description: 约束配置管理
+  - name: Dispatch
+    description: 派单服务（家政/长护险）
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: 健康检查
+      operationId: healthCheck
+      responses:
+        '200':
+          description: 服务正常
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: paiban
+
+  /version:
+    get:
+      tags: [System]
+      summary: 获取版本信息
+      operationId: getVersion
+      responses:
+        '200':
+          description: 版本信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionInfo'
+
+  /api/v1/schedule/generate:
+    post:
+      tags: [Schedule]
+      summary: 生成排班
+      description: |
+        根据员工、班次和需求生成排班方案。
+        
+        系统会：
+        1. 验证输入数据
+        2. 加载约束配置
+        3. 使用贪心算法生成初始方案
+        4. 评估约束满足度
+        5. 返回排班结果
+      operationId: generateSchedule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+            example:
+              org_id: "550e8400-e29b-41d4-a716-446655440000"
+              start_date: "2024-01-15"
+              end_date: "2024-01-21"
+              employees:
+                - id: "550e8400-e29b-41d4-a716-446655440001"
+                  name: "张三"
+                  position: "服务员"
+                  skills: ["收银", "点餐"]
+                - id: "550e8400-e29b-41d4-a716-446655440002"
+                  name: "李四"
+                  position: "服务员"
+                  skills: ["点餐"]
+              shifts:
+                - id: "550e8400-e29b-41d4-a716-446655440010"
+                  name: "早班"
+                  code: "M"
+                  start_time: "08:00"
+                  end_time: "16:00"
+                  duration: 480
+              requirements:
+                - shift_id: "550e8400-e29b-41d4-a716-446655440010"
+                  date: "2024-01-15"
+                  min_employees: 2
+                  priority: 8
+      responses:
+        '200':
+          description: 排班生成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: 无法生成可行方案
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/schedule/validate:
+    post:
+      tags: [Schedule]
+      summary: 验证排班
+      description: 验证现有排班是否满足约束条件
+      operationId: validateSchedule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateRequest'
+      responses:
+        '200':
+          description: 验证结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/constraints/templates:
+    get:
+      tags: [Constraints]
+      summary: 获取约束模板列表
+      description: 返回各场景的预定义约束模板
+      operationId: getConstraintTemplates
+      responses:
+        '200':
+          description: 约束模板列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConstraintTemplate'
+
+components:
+  schemas:
+    VersionInfo:
+      type: object
+      properties:
+        version:
+          type: string
+          example: "1.0.0"
+        build_time:
+          type: string
+          example: "2024-01-15T10:00:00Z"
+        git_commit:
+          type: string
+          example: "abc1234"
+
+    GenerateRequest:
+      type: object
+      required:
+        - org_id
+        - start_date
+        - end_date
+        - employees
+        - shifts
+        - requirements
+      properties:
+        org_id:
+          type: string
+          format: uuid
+          description: 组织ID
+        start_date:
+          type: string
+          format: date
+          description: 排班开始日期
+        end_date:
+          type: string
+          format: date
+          description: 排班结束日期
+        scenario:
+          type: string
+          enum: [restaurant, factory, housekeeping, nursing]
+          description: 场景类型（可选，用于加载预设约束）
+        employees:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeInput'
+          description: 参与排班的员工列表
+        shifts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShiftInput'
+          description: 可用班次列表
+        requirements:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequirementInput'
+          description: 排班需求列表
+        constraints:
+          type: object
+          additionalProperties: true
+          description: 自定义约束配置
+        options:
+          $ref: '#/components/schemas/GenerateOptions'
+
+    EmployeeInput:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        position:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, inactive, leave]
+          default: active
+
+    ShiftInput:
+      type: object
+      required:
+        - id
+        - name
+        - code
+        - start_time
+        - end_time
+        - duration
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+        start_time:
+          type: string
+          pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$'
+          example: "08:00"
+        end_time:
+          type: string
+          pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$'
+          example: "16:00"
+        duration:
+          type: integer
+          description: 班次时长（分钟）
+        type:
+          type: string
+          enum: [morning, afternoon, evening, night, split]
+
+    RequirementInput:
+      type: object
+      required:
+        - shift_id
+        - date
+        - min_employees
+      properties:
+        shift_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        position:
+          type: string
+        min_employees:
+          type: integer
+          minimum: 1
+        max_employees:
+          type: integer
+        opt_employees:
+          type: integer
+          description: 最优人数
+        skills:
+          type: array
+          items:
+            type: string
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+
+    GenerateOptions:
+      type: object
+      properties:
+        timeout_seconds:
+          type: integer
+          default: 30
+          description: 超时时间（秒）
+        optimization_level:
+          type: integer
+          enum: [1, 2, 3]
+          default: 2
+          description: 优化级别（1=快速, 2=平衡, 3=最优）
+        respect_preferences:
+          type: boolean
+          default: true
+          description: 是否考虑员工偏好
+
+    GenerateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        schedule_id:
+          type: string
+          format: uuid
+        assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssignmentOutput'
+        statistics:
+          $ref: '#/components/schemas/Statistics'
+        constraint_result:
+          $ref: '#/components/schemas/ConstraintResult'
+        duration:
+          type: string
+          description: 执行耗时
+
+    AssignmentOutput:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        employee_name:
+          type: string
+        shift_id:
+          type: string
+          format: uuid
+        shift_name:
+          type: string
+        date:
+          type: string
+          format: date
+        start_time:
+          type: string
+        end_time:
+          type: string
+        position:
+          type: string
+        hours:
+          type: number
+
+    Statistics:
+      type: object
+      properties:
+        total_assignments:
+          type: integer
+        filled_requirements:
+          type: integer
+        total_requirements:
+          type: integer
+        fill_rate:
+          type: number
+          description: 需求满足率（百分比）
+        total_hours:
+          type: number
+        avg_hours_per_employee:
+          type: number
+        iterations:
+          type: integer
+
+    ConstraintResult:
+      type: object
+      properties:
+        is_valid:
+          type: boolean
+          description: 是否满足所有硬约束
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: 约束满足度得分
+        hard_violations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ViolationDetail'
+        soft_violations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ViolationDetail'
+
+    ViolationDetail:
+      type: object
+      properties:
+        constraint_type:
+          type: string
+        constraint_name:
+          type: string
+        employee_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        message:
+          type: string
+        severity:
+          type: string
+          enum: [error, warning]
+        penalty:
+          type: integer
+
+    ValidateRequest:
+      type: object
+      required:
+        - org_id
+        - assignments
+        - employees
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssignmentInput'
+        employees:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeInput'
+        constraints:
+          type: object
+          additionalProperties: true
+
+    AssignmentInput:
+      type: object
+      required:
+        - employee_id
+        - shift_id
+        - date
+        - start_time
+        - end_time
+      properties:
+        employee_id:
+          type: string
+          format: uuid
+        shift_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        start_time:
+          type: string
+        end_time:
+          type: string
+        position:
+          type: string
+
+    ValidateResponse:
+      type: object
+      properties:
+        is_valid:
+          type: boolean
+        score:
+          type: number
+        violations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ViolationDetail'
+
+    ConstraintTemplate:
+      type: object
+      properties:
+        scenario:
+          type: string
+          enum: [restaurant, factory, housekeeping, nursing]
+        name:
+          type: string
+        description:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: boolean
+          example: true
+        code:
+          type: string
+          example: "VALIDATION_FAILED"
+        message:
+          type: string
+          example: "验证失败"
+        details:
+          type: string
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
