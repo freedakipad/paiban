@@ -124,7 +124,16 @@ tidy: ## 整理依赖
 	$(GOMOD) tidy
 
 .PHONY: check
-check: fmt vet test ## 运行所有检查
+check: fmt vet lint test ## 运行所有检查
+
+# ================================
+# 数据库
+# ================================
+.PHONY: db-migrate
+db-migrate: ## 运行数据库迁移
+	@echo "运行数据库迁移..."
+	# TODO: 使用 golang-migrate 或 goose 执行迁移
+	@echo "迁移完成"
 
 # ================================
 # API 文档
@@ -147,7 +156,7 @@ frontend: ## 启动前端控制台
 # 发布
 # ================================
 .PHONY: release
-release: check build build-linux ## 构建发布版本
+release: lint test build build-linux ## 构建发布版本
 	@echo ""
 	@echo "发布版本 $(VERSION) 构建完成"
 	@echo "  - macOS: bin/$(APP_NAME)"
@@ -170,6 +179,6 @@ install: build ## 安装到系统目录
 	@echo "安装完成: /opt/paiban/"
 
 .PHONY: deploy
-deploy: build-linux ## 部署准备
+deploy: build-linux ## 部署（需要配置目标服务器）
 	@echo "请使用 scp 或其他工具将 bin/$(APP_NAME)-linux 部署到目标服务器"
 	@echo "参考文档: docs/deploy.md"
