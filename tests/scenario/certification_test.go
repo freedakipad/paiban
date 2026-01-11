@@ -190,11 +190,11 @@ func TestNursingCertification(t *testing.T) {
 // TestValidateCertificationsForScenario 资质验证辅助函数测试
 func TestValidateCertificationsForScenario(t *testing.T) {
 	tests := []struct {
-		name       string
-		scenario   string
-		position   string
-		certs      []string
-		wantValid  bool
+		name        string
+		scenario    string
+		position    string
+		certs       []string
+		wantValid   bool
 		wantMissing int
 	}{
 		{
@@ -205,11 +205,11 @@ func TestValidateCertificationsForScenario(t *testing.T) {
 			wantValid: true,
 		},
 		{
-			name:       "餐饮服务员无健康证",
-			scenario:   "restaurant",
-			position:   "服务员",
-			certs:      []string{},
-			wantValid:  false,
+			name:        "餐饮服务员无健康证",
+			scenario:    "restaurant",
+			position:    "服务员",
+			certs:       []string{},
+			wantValid:   false,
 			wantMissing: 1,
 		},
 		{
@@ -220,11 +220,11 @@ func TestValidateCertificationsForScenario(t *testing.T) {
 			wantValid: true,
 		},
 		{
-			name:       "餐饮厨师缺少食品安全证",
-			scenario:   "restaurant",
-			position:   "厨师",
-			certs:      []string{"健康证"},
-			wantValid:  false,
+			name:        "餐饮厨师缺少食品安全证",
+			scenario:    "restaurant",
+			position:    "厨师",
+			certs:       []string{"健康证"},
+			wantValid:   false,
 			wantMissing: 1,
 		},
 		{
@@ -235,11 +235,11 @@ func TestValidateCertificationsForScenario(t *testing.T) {
 			wantValid: true,
 		},
 		{
-			name:       "家政保姆缺少无犯罪证明",
-			scenario:   "housekeeping",
-			position:   "保姆",
-			certs:      []string{"家政服务证"},
-			wantValid:  false,
+			name:        "家政保姆缺少无犯罪证明",
+			scenario:    "housekeeping",
+			position:    "保姆",
+			certs:       []string{"家政服务证"},
+			wantValid:   false,
 			wantMissing: 1,
 		},
 	}
@@ -277,4 +277,3 @@ func TestGetScenarioCertRequirements(t *testing.T) {
 		}
 	}
 }
-

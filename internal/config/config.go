@@ -10,13 +10,13 @@ import (
 
 // Config 应用配置
 type Config struct {
-	App       AppConfig       `yaml:"app"`
-	Database  DatabaseConfig  `yaml:"database"`
-	Redis     RedisConfig     `yaml:"redis"`
-	API       APIConfig       `yaml:"api"`
-	Scheduler SchedulerConfig `yaml:"scheduler"`
+	App        AppConfig        `yaml:"app"`
+	Database   DatabaseConfig   `yaml:"database"`
+	Redis      RedisConfig      `yaml:"redis"`
+	API        APIConfig        `yaml:"api"`
+	Scheduler  SchedulerConfig  `yaml:"scheduler"`
 	Dispatcher DispatcherConfig `yaml:"dispatcher"`
-	Metrics   MetricsConfig   `yaml:"metrics"`
+	Metrics    MetricsConfig    `yaml:"metrics"`
 }
 
 // AppConfig 应用基础配置
@@ -207,4 +207,3 @@ func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
 	}
 	return defaultValue
 }
-

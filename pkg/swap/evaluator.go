@@ -31,11 +31,11 @@ type SwapRequest struct {
 
 // SwapEvaluation 换班评估结果
 type SwapEvaluation struct {
-	Feasible     bool               `json:"feasible"`
-	Score        float64            `json:"score"`        // 0-100
-	Issues       []SwapIssue        `json:"issues"`       // 问题列表
-	Impact       *SwapImpact        `json:"impact"`       // 影响分析
-	Recommendation string           `json:"recommendation"`
+	Feasible       bool        `json:"feasible"`
+	Score          float64     `json:"score"`  // 0-100
+	Issues         []SwapIssue `json:"issues"` // 问题列表
+	Impact         *SwapImpact `json:"impact"` // 影响分析
+	Recommendation string      `json:"recommendation"`
 }
 
 // SwapIssue 换班问题
@@ -54,10 +54,10 @@ type SwapImpact struct {
 
 // EmployeeImpact 员工影响
 type EmployeeImpact struct {
-	HoursChange        float64 `json:"hours_change"`
-	OvertimeChange     float64 `json:"overtime_change"`
+	HoursChange         float64 `json:"hours_change"`
+	OvertimeChange      float64 `json:"overtime_change"`
 	PreferenceSatisfied bool    `json:"preference_satisfied"`
-	NewConflicts       int     `json:"new_conflicts"`
+	NewConflicts        int     `json:"new_conflicts"`
 }
 
 // EvaluateSwap 评估换班可行性
@@ -267,4 +267,3 @@ func (e *SwapEvaluator) CanSwap(ctx *constraint.Context, request *SwapRequest) (
 	}
 	return true, ""
 }
-

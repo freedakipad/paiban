@@ -12,15 +12,15 @@ type Code string
 
 const (
 	// 通用错误码
-	CodeUnknown          Code = "UNKNOWN"
-	CodeInternal         Code = "INTERNAL_ERROR"
-	CodeInvalidInput     Code = "INVALID_INPUT"
-	CodeNotFound         Code = "NOT_FOUND"
-	CodeAlreadyExists    Code = "ALREADY_EXISTS"
-	CodeUnauthorized     Code = "UNAUTHORIZED"
-	CodeForbidden        Code = "FORBIDDEN"
-	CodeTimeout          Code = "TIMEOUT"
-	CodeRateLimited      Code = "RATE_LIMITED"
+	CodeUnknown       Code = "UNKNOWN"
+	CodeInternal      Code = "INTERNAL_ERROR"
+	CodeInvalidInput  Code = "INVALID_INPUT"
+	CodeNotFound      Code = "NOT_FOUND"
+	CodeAlreadyExists Code = "ALREADY_EXISTS"
+	CodeUnauthorized  Code = "UNAUTHORIZED"
+	CodeForbidden     Code = "FORBIDDEN"
+	CodeTimeout       Code = "TIMEOUT"
+	CodeRateLimited   Code = "RATE_LIMITED"
 
 	// 排班引擎相关
 	CodeConstraintViolation   Code = "CONSTRAINT_VIOLATION"
@@ -156,13 +156,13 @@ func GetHTTPStatus(err error) int {
 
 // 预定义错误
 var (
-	ErrNotFound         = New(CodeNotFound, "资源不存在")
-	ErrInvalidInput     = New(CodeInvalidInput, "输入参数无效")
-	ErrUnauthorized     = New(CodeUnauthorized, "未授权访问")
-	ErrForbidden        = New(CodeForbidden, "禁止访问")
-	ErrInternal         = New(CodeInternal, "内部错误")
-	ErrTimeout          = New(CodeTimeout, "操作超时")
-	ErrNoFeasibleSolution = New(CodeNoFeasibleSolution, "无可行解")
+	ErrNotFound            = New(CodeNotFound, "资源不存在")
+	ErrInvalidInput        = New(CodeInvalidInput, "输入参数无效")
+	ErrUnauthorized        = New(CodeUnauthorized, "未授权访问")
+	ErrForbidden           = New(CodeForbidden, "禁止访问")
+	ErrInternal            = New(CodeInternal, "内部错误")
+	ErrTimeout             = New(CodeTimeout, "操作超时")
+	ErrNoFeasibleSolution  = New(CodeNoFeasibleSolution, "无可行解")
 	ErrConstraintViolation = New(CodeConstraintViolation, "违反约束条件")
 )
 
@@ -234,4 +234,3 @@ func (ve *ValidationErrors) ToAppError() *AppError {
 	}
 	return err
 }
-

@@ -181,8 +181,8 @@ func TestDefaultDetectorConfig(t *testing.T) {
 
 func TestNewConflictDetector(t *testing.T) {
 	config := &DetectorConfig{
-		MinRestHours:      10,
-		MaxHoursPerDay:    12,
+		MinRestHours:       10,
+		MaxHoursPerDay:     12,
 		MaxConsecutiveDays: 5,
 	}
 

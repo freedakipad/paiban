@@ -159,4 +159,3 @@ func generateRequestID() string {
 	_, _ = rand.Read(b)
 	return fmt.Sprintf("req_%x", b[:8])
 }
-

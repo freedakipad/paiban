@@ -236,4 +236,3 @@ func (r *OrganizationRepository) List(ctx context.Context, filter ListFilter) ([
 
 	return orgs, total, nil
 }
-

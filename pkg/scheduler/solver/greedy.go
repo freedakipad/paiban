@@ -24,23 +24,23 @@ type Solver interface {
 
 // Result 求解结果
 type Result struct {
-	Assignments     []*model.Assignment        `json:"assignments"`
-	Statistics      *Statistics                `json:"statistics"`
-	ConstraintResult *constraint.Result        `json:"constraint_result"`
-	Duration        time.Duration              `json:"duration"`
-	Success         bool                       `json:"success"`
-	Message         string                     `json:"message,omitempty"`
+	Assignments      []*model.Assignment `json:"assignments"`
+	Statistics       *Statistics         `json:"statistics"`
+	ConstraintResult *constraint.Result  `json:"constraint_result"`
+	Duration         time.Duration       `json:"duration"`
+	Success          bool                `json:"success"`
+	Message          string              `json:"message,omitempty"`
 }
 
 // Statistics 排班统计
 type Statistics struct {
-	TotalAssignments   int     `json:"total_assignments"`
-	FilledRequirements int     `json:"filled_requirements"`
-	TotalRequirements  int     `json:"total_requirements"`
-	FillRate           float64 `json:"fill_rate"`
-	TotalHours         float64 `json:"total_hours"`
+	TotalAssignments    int     `json:"total_assignments"`
+	FilledRequirements  int     `json:"filled_requirements"`
+	TotalRequirements   int     `json:"total_requirements"`
+	FillRate            float64 `json:"fill_rate"`
+	TotalHours          float64 `json:"total_hours"`
 	AvgHoursPerEmployee float64 `json:"avg_hours_per_employee"`
-	Iterations         int     `json:"iterations"`
+	Iterations          int     `json:"iterations"`
 }
 
 // GreedySolver 贪心求解器
@@ -286,4 +286,3 @@ func countDays(startDate, endDate string) int {
 	}
 	return int(end.Sub(start).Hours()/24) + 1
 }
-

@@ -98,4 +98,3 @@ func TestShift_IsSplitShift(t *testing.T) {
 		t.Error("普通班应返回false")
 	}
 }
-

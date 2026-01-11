@@ -560,4 +560,3 @@ func (c *CertificationRequiredConstraint) EvaluateAssignment(ctx *constraint.Con
 
 	return true, 0
 }
-

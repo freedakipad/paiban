@@ -11,34 +11,34 @@ import (
 // 预定义证书类型常量
 const (
 	// 餐饮行业
-	CertHealthCard      = "健康证"         // 餐饮从业人员健康证
-	CertFoodSafety      = "食品安全培训证"   // 食品安全知识培训
-	CertFireSafety      = "消防安全证"      // 消防安全培训
+	CertHealthCard = "健康证"     // 餐饮从业人员健康证
+	CertFoodSafety = "食品安全培训证" // 食品安全知识培训
+	CertFireSafety = "消防安全证"   // 消防安全培训
 
 	// 家政服务
-	CertNoCriminalRecord = "无犯罪证明"     // 无犯罪记录证明
-	CertHousekeeping     = "家政服务证"     // 家政服务员资格证
-	CertMaternityNurse   = "月嫂证"        // 母婴护理员证书
-	CertElderlyCare      = "养老护理证"     // 养老护理员证书
+	CertNoCriminalRecord = "无犯罪证明" // 无犯罪记录证明
+	CertHousekeeping     = "家政服务证" // 家政服务员资格证
+	CertMaternityNurse   = "月嫂证"   // 母婴护理员证书
+	CertElderlyCare      = "养老护理证" // 养老护理员证书
 
 	// 长护险/医疗护理
-	CertNurseAide        = "护理员证"       // 护理员资格证
-	CertNurseLicense     = "护士执照"       // 护士执业证书
-	CertRehabTech        = "康复技师证"     // 康复技师证书
-	CertCPR              = "心肺复苏证"     // CPR急救证书
+	CertNurseAide    = "护理员证"  // 护理员资格证
+	CertNurseLicense = "护士执照"  // 护士执业证书
+	CertRehabTech    = "康复技师证" // 康复技师证书
+	CertCPR          = "心肺复苏证" // CPR急救证书
 
 	// 工厂
-	CertElectrician      = "电工证"        // 电工操作证
-	CertForklift         = "叉车证"        // 叉车操作证
-	CertWelder           = "焊工证"        // 焊工操作证
-	CertSafetyOfficer    = "安全员证"      // 安全生产管理员证
+	CertElectrician   = "电工证"  // 电工操作证
+	CertForklift      = "叉车证"  // 叉车操作证
+	CertWelder        = "焊工证"  // 焊工操作证
+	CertSafetyOfficer = "安全员证" // 安全生产管理员证
 )
 
 // IndustryCertificationConstraint 行业资质约束（硬约束）
 // 根据不同行业和岗位要求员工必须持有特定证书
 type IndustryCertificationConstraint struct {
 	*BaseConstraint
-	scenario       string            // 场景: restaurant/housekeeping/nursing/factory
+	scenario         string              // 场景: restaurant/housekeeping/nursing/factory
 	certRequirements map[string][]string // 岗位 -> 所需证书列表
 }
 
@@ -238,4 +238,3 @@ func GetScenarioCertRequirements(scenario string) map[string][]string {
 	c := NewIndustryCertificationConstraint(scenario)
 	return c.certRequirements
 }
-

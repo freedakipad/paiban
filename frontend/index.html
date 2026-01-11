@@ -301,7 +301,7 @@
     .code-editor {
       width: 100%;
       min-height: 200px;
-      max-height: 350px;
+      flex: 1;
       background: var(--bg-primary);
       border: 1px solid var(--border-primary);
       border-radius: var(--radius-md);
@@ -310,7 +310,7 @@
       font-size: 0.75rem;
       line-height: 1.5;
       color: var(--text-primary);
-      resize: vertical;
+      resize: none;
     }
 
     .code-editor:focus { outline: none; border-color: var(--accent-cyan); }
@@ -356,7 +356,7 @@
     .tab:hover { color: var(--text-primary); }
     .tab.active { color: var(--accent-cyan); border-bottom-color: var(--accent-cyan); }
     .tab-content { display: none; flex: 1; min-height: 0; }
-    .tab-content.active { display: flex; flex-direction: column; }
+    .tab-content.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
     /* Main Panel Tabs */
     .main-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -413,7 +413,7 @@
     @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
     .main-tab-content { display: none; flex: 1; min-height: 0; overflow: hidden; }
-    .main-tab-content.active { display: flex; flex-direction: column; }
+    .main-tab-content.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     .main-tab-content .panel-body { flex: 1; overflow: auto; display: flex; flex-direction: column; min-height: 0; }
 
     /* Business View Styles */

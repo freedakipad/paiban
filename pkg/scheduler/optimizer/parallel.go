@@ -129,9 +129,9 @@ func (p *ParallelEvaluator) FindBest(results []EvaluationResult) *EvaluationResu
 
 // ParallelOptimizer 并行优化器
 type ParallelOptimizer struct {
-	config      *OptimizationConfig
-	evaluator   *ParallelEvaluator
-	neighbors   *NeighborhoodGenerator
+	config    *OptimizationConfig
+	evaluator *ParallelEvaluator
+	neighbors *NeighborhoodGenerator
 }
 
 // NewParallelOptimizer 创建并行优化器
@@ -176,7 +176,7 @@ func (p *ParallelOptimizer) OptimizeParallel(ctx context.Context, initial *Solut
 
 		// 并行评估
 		results := p.evaluator.EvaluateBatch(ctx, neighbors, optCtx)
-		
+
 		// 找出最优邻域解
 		bestResult := p.evaluator.FindBest(results)
 		if bestResult == nil {
@@ -216,7 +216,7 @@ func (p *ParallelOptimizer) OptimizeParallel(ctx context.Context, initial *Solut
 // generateNeighborsParallel 并行生成邻域解
 func (p *ParallelOptimizer) generateNeighborsParallel(ctx context.Context, current *Solution, employees []*model.Employee, shifts []*model.Shift, count int) []*Solution {
 	resultChan := make(chan *Solution, count)
-	
+
 	var wg sync.WaitGroup
 	batchSize := count / p.config.ParallelWorkers
 	if batchSize < 1 {
@@ -227,9 +227,9 @@ func (p *ParallelOptimizer) generateNeighborsParallel(ctx context.Context, curre
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			
+
 			localGen := NewNeighborhoodGenerator()
-			
+
 			for j := 0; j < batchSize; j++ {
 				select {
 				case <-ctx.Done():
@@ -303,12 +303,12 @@ func (io *IslandOptimizer) OptimizeIslands(ctx context.Context, initial *Solutio
 	// 并行运行岛屿
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	
+
 	for i := 0; i < io.islandCount; i++ {
 		wg.Add(1)
 		go func(island *Island) {
 			defer wg.Done()
-			
+
 			result, err := island.Optimizer.Optimize(ctx, island.Current, employees, shifts)
 			if err == nil {
 				mu.Lock()
@@ -332,4 +332,3 @@ func (io *IslandOptimizer) OptimizeIslands(ctx context.Context, initial *Solutio
 
 	return globalBest, nil
 }
-

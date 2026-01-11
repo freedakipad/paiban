@@ -14,22 +14,22 @@ import (
 type ConflictType string
 
 const (
-	ConflictOverlap     ConflictType = "overlap"       // 时间重叠
-	ConflictRestTime    ConflictType = "rest_time"     // 休息时间不足
-	ConflictMaxHours    ConflictType = "max_hours"     // 超过最大工时
-	ConflictConsecutive ConflictType = "consecutive"   // 连续天数过多
-	ConflictSkill       ConflictType = "skill"         // 技能不匹配
+	ConflictOverlap      ConflictType = "overlap"      // 时间重叠
+	ConflictRestTime     ConflictType = "rest_time"    // 休息时间不足
+	ConflictMaxHours     ConflictType = "max_hours"    // 超过最大工时
+	ConflictConsecutive  ConflictType = "consecutive"  // 连续天数过多
+	ConflictSkill        ConflictType = "skill"        // 技能不匹配
 	ConflictAvailability ConflictType = "availability" // 不可用
 )
 
 // Conflict 冲突信息
 type Conflict struct {
-	Type        ConflictType  `json:"type"`
-	Severity    string        `json:"severity"` // error/warning
-	EmployeeID  uuid.UUID     `json:"employee_id"`
-	Date        string        `json:"date"`
-	Message     string        `json:"message"`
-	Assignments []uuid.UUID   `json:"assignments,omitempty"` // 相关的排班ID
+	Type        ConflictType `json:"type"`
+	Severity    string       `json:"severity"` // error/warning
+	EmployeeID  uuid.UUID    `json:"employee_id"`
+	Date        string       `json:"date"`
+	Message     string       `json:"message"`
+	Assignments []uuid.UUID  `json:"assignments,omitempty"` // 相关的排班ID
 }
 
 // ConflictDetector 冲突检测器
@@ -354,4 +354,3 @@ func isConsecutiveDateStr(date1, date2 string) bool {
 	diff := t2.Sub(t1).Hours() / 24
 	return diff == 1
 }
-

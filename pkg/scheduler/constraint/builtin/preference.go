@@ -195,4 +195,3 @@ func (c *MinimizeOvertimeConstraint) EvaluateAssignment(ctx *constraint.Context,
 
 	return true, 0
 }
-

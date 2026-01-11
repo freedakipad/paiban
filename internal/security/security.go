@@ -15,19 +15,19 @@ import (
 )
 
 var (
-	ErrInvalidAPIKey   = errors.New("无效的API密钥")
-	ErrExpiredAPIKey   = errors.New("API密钥已过期")
+	ErrInvalidAPIKey     = errors.New("无效的API密钥")
+	ErrExpiredAPIKey     = errors.New("API密钥已过期")
 	ErrRateLimitExceeded = errors.New("请求频率超限")
-	ErrInvalidSignature = errors.New("无效的签名")
+	ErrInvalidSignature  = errors.New("无效的签名")
 )
 
 // APIKey API密钥
 type APIKey struct {
 	Key       string     `json:"key"`
-	Secret    string     `json:"-"`           // 不序列化
+	Secret    string     `json:"-"` // 不序列化
 	TenantID  string     `json:"tenant_id"`
 	Name      string     `json:"name"`
-	Scopes    []string   `json:"scopes"`      // 权限范围
+	Scopes    []string   `json:"scopes"` // 权限范围
 	CreatedAt time.Time  `json:"created_at"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	Enabled   bool       `json:"enabled"`
@@ -297,4 +297,3 @@ func SanitizeInput(input string) string {
 	}
 	return input
 }
-

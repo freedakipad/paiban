@@ -528,4 +528,3 @@ type ScenarioTemplate struct {
 	IsDefault   bool                   `json:"is_default"`
 	CreatedAt   time.Time              `json:"created_at"`
 }
-

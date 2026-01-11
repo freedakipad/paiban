@@ -13,46 +13,46 @@ import (
 
 // StatsRequest 统计请求
 type StatsRequest struct {
-	OrgID       string               `json:"org_id"`
-	StartDate   string               `json:"start_date"`
-	EndDate     string               `json:"end_date"`
-	Employees   []*model.Employee    `json:"employees"`
-	Shifts      []*model.Shift       `json:"shifts"`
-	Assignments []*model.Assignment  `json:"assignments"`
+	OrgID       string              `json:"org_id"`
+	StartDate   string              `json:"start_date"`
+	EndDate     string              `json:"end_date"`
+	Employees   []*model.Employee   `json:"employees"`
+	Shifts      []*model.Shift      `json:"shifts"`
+	Assignments []*model.Assignment `json:"assignments"`
 }
 
 // FairnessResponse 公平性响应
 type FairnessResponse struct {
-	Success bool                    `json:"success"`
-	Data    *stats.FairnessMetrics  `json:"data,omitempty"`
-	Error   string                  `json:"error,omitempty"`
+	Success bool                   `json:"success"`
+	Data    *stats.FairnessMetrics `json:"data,omitempty"`
+	Error   string                 `json:"error,omitempty"`
 }
 
 // CoverageResponse 覆盖率响应
 type CoverageResponse struct {
-	Success bool                    `json:"success"`
-	Data    *stats.CoverageMetrics  `json:"data,omitempty"`
-	Error   string                  `json:"error,omitempty"`
+	Success bool                   `json:"success"`
+	Data    *stats.CoverageMetrics `json:"data,omitempty"`
+	Error   string                 `json:"error,omitempty"`
 }
 
 // WorkloadResponse 工作量响应
 type WorkloadResponse struct {
-	Success bool              `json:"success"`
-	Data    *WorkloadSummary  `json:"data,omitempty"`
-	Error   string            `json:"error,omitempty"`
+	Success bool             `json:"success"`
+	Data    *WorkloadSummary `json:"data,omitempty"`
+	Error   string           `json:"error,omitempty"`
 }
 
 // WorkloadSummary 工作量汇总
 type WorkloadSummary struct {
-	Period           string                 `json:"period"`
-	TotalHours       float64                `json:"total_hours"`
-	TotalShifts      int                    `json:"total_shifts"`
-	EmployeeCount    int                    `json:"employee_count"`
-	AvgHoursPerPerson float64               `json:"avg_hours_per_person"`
-	OvertimeHours    float64                `json:"overtime_hours"`
-	ByEmployee       []EmployeeWorkload     `json:"by_employee"`
-	ByDate           map[string]DailyWorkload `json:"by_date"`
-	ByShiftType      map[string]float64     `json:"by_shift_type"`
+	Period            string                   `json:"period"`
+	TotalHours        float64                  `json:"total_hours"`
+	TotalShifts       int                      `json:"total_shifts"`
+	EmployeeCount     int                      `json:"employee_count"`
+	AvgHoursPerPerson float64                  `json:"avg_hours_per_person"`
+	OvertimeHours     float64                  `json:"overtime_hours"`
+	ByEmployee        []EmployeeWorkload       `json:"by_employee"`
+	ByDate            map[string]DailyWorkload `json:"by_date"`
+	ByShiftType       map[string]float64       `json:"by_shift_type"`
 }
 
 // EmployeeWorkload 员工工作量
@@ -67,10 +67,10 @@ type EmployeeWorkload struct {
 
 // DailyWorkload 每日工作量
 type DailyWorkload struct {
-	Date        string  `json:"date"`
-	TotalHours  float64 `json:"total_hours"`
-	ShiftCount  int     `json:"shift_count"`
-	StaffCount  int     `json:"staff_count"`
+	Date       string  `json:"date"`
+	TotalHours float64 `json:"total_hours"`
+	ShiftCount int     `json:"shift_count"`
+	StaffCount int     `json:"staff_count"`
 }
 
 // GetFairnessHandler 公平性分析API
@@ -181,9 +181,9 @@ func calculateWorkload(assignments []*model.Assignment, employeeMap map[string]*
 
 	// 员工工作量统计
 	employeeStats := make(map[string]*EmployeeWorkload)
-	
+
 	standardWeeklyHours := 40.0
-	
+
 	for _, a := range assignments {
 		// 计算工时
 		hours := a.EndTime.Sub(a.StartTime).Hours()
@@ -224,7 +224,7 @@ func calculateWorkload(assignments []*model.Assignment, employeeMap map[string]*
 
 	// 计算加班和利用率
 	summary.EmployeeCount = len(employeeStats)
-	
+
 	// 计算周数
 	weeks := 1.0
 	if startDate != "" && endDate != "" {
@@ -314,7 +314,7 @@ func convertToShiftInfo(shifts []*model.Shift) []*stats.ShiftInfo {
 		// 解析时间字符串
 		start, _ := time.Parse("15:04", s.StartTime)
 		end, _ := time.Parse("15:04", s.EndTime)
-		
+
 		result[i] = &stats.ShiftInfo{
 			ID:             s.ID.String(),
 			Date:           "", // Shift模型没有Date字段
@@ -327,4 +327,3 @@ func convertToShiftInfo(shifts []*model.Shift) []*stats.ShiftInfo {
 	}
 	return result
 }
-

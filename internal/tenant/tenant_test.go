@@ -184,4 +184,3 @@ func TestCreateDefaultTenant(t *testing.T) {
 		t.Errorf("Expected status='active', got %s", tenant.Status)
 	}
 }
-

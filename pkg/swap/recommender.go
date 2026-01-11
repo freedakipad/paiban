@@ -23,22 +23,22 @@ func NewRecommender(cm *constraint.Manager) *Recommender {
 
 // Recommendation 换班推荐
 type Recommendation struct {
-	TargetEmployee  *model.Employee   `json:"target_employee"`
-	Assignment      *model.Assignment `json:"assignment,omitempty"`
-	Score           float64           `json:"score"`
-	Reason          string            `json:"reason"`
-	SwapType        string            `json:"swap_type"` // take_over/exchange
-	ImpactSummary   string            `json:"impact_summary"`
-	Rank            int               `json:"rank"`
+	TargetEmployee *model.Employee   `json:"target_employee"`
+	Assignment     *model.Assignment `json:"assignment,omitempty"`
+	Score          float64           `json:"score"`
+	Reason         string            `json:"reason"`
+	SwapType       string            `json:"swap_type"` // take_over/exchange
+	ImpactSummary  string            `json:"impact_summary"`
+	Rank           int               `json:"rank"`
 }
 
 // RecommendOptions 推荐选项
 type RecommendOptions struct {
-	MaxRecommendations int      // 最大推荐数量
+	MaxRecommendations int         // 最大推荐数量
 	PreferredEmployees []uuid.UUID // 优先考虑的员工
 	ExcludeEmployees   []uuid.UUID // 排除的员工
-	AllowExchange      bool     // 是否允许互换
-	MinScore           float64  // 最低得分
+	AllowExchange      bool        // 是否允许互换
+	MinScore           float64     // 最低得分
 }
 
 // DefaultRecommendOptions 返回默认选项
@@ -299,4 +299,3 @@ func (r *Recommender) AutoAssignSwap(
 
 	return &newAssignment, nil
 }
-

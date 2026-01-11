@@ -148,4 +148,3 @@ func (c *MaxHoursPerWeekConstraint) EvaluateAssignment(ctx *constraint.Context, 
 
 	return true, 0
 }
-

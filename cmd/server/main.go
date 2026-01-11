@@ -45,8 +45,9 @@ func main() {
 		port = "7012"
 	}
 
-	// 创建处理器
-	scheduleHandler := handler.NewScheduleHandler()
+	// 创建处理器（无数据库模式，适用于测试和简单场景）
+	// 如需持久化，请使用 handler.NewScheduleHandler(scheduleRepo, employeeRepo, shiftRepo)
+	scheduleHandler := handler.NewScheduleHandlerWithoutDB()
 
 	// 创建 HTTP 服务器
 	mux := http.NewServeMux()

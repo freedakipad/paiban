@@ -67,38 +67,38 @@ func GetRegistry() *MetricsRegistry {
 func initDefaultMetrics() {
 	// 请求计数器
 	registry.NewCounter("paiban_http_requests_total", "HTTP请求总数", []string{"method", "path", "status"})
-	
+
 	// 请求延迟直方图
-	registry.NewHistogram("paiban_http_request_duration_seconds", "HTTP请求延迟", 
+	registry.NewHistogram("paiban_http_request_duration_seconds", "HTTP请求延迟",
 		[]string{"method", "path"},
 		[]float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0})
-	
+
 	// 排班生成计数器
 	registry.NewCounter("paiban_schedule_generation_total", "排班生成次数", []string{"scenario", "status"})
-	
+
 	// 排班生成延迟
 	registry.NewHistogram("paiban_schedule_generation_duration_seconds", "排班生成延迟",
 		[]string{"scenario"},
 		[]float64{0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0})
-	
+
 	// 约束评估计数器
 	registry.NewCounter("paiban_constraint_evaluations_total", "约束评估次数", []string{"constraint_type", "result"})
-	
+
 	// 活动任务数
 	registry.NewGauge("paiban_active_tasks", "当前活动任务数", []string{})
-	
+
 	// 数据库连接池
 	registry.NewGauge("paiban_db_connections", "数据库连接数", []string{"state"})
-	
+
 	// 优化迭代次数
 	registry.NewCounter("paiban_optimizer_iterations_total", "优化器迭代次数", []string{"optimizer_type"})
-	
+
 	// 解决方案质量分数
 	registry.NewGauge("paiban_solution_score", "解决方案质量分数", []string{"org_id"})
-	
+
 	// 公平性指数
 	registry.NewGauge("paiban_fairness_gini", "公平性基尼系数", []string{"org_id", "metric_type"})
-	
+
 	// 覆盖率
 	registry.NewGauge("paiban_coverage_rate", "班次覆盖率", []string{"org_id"})
 }
@@ -220,13 +220,13 @@ func (g *Gauge) Add(value float64, labelValues ...string) {
 func (h *Histogram) Observe(value float64, labelValues ...string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	
+
 	key := labelKey(labelValues)
-	
+
 	if _, exists := h.counts[key]; !exists {
 		h.counts[key] = make([]int, len(h.Buckets)+1)
 	}
-	
+
 	// 找到对应的bucket
 	for i, bucket := range h.Buckets {
 		if value <= bucket {
@@ -234,7 +234,7 @@ func (h *Histogram) Observe(value float64, labelValues ...string) {
 		}
 	}
 	h.counts[key][len(h.Buckets)]++ // +Inf bucket
-	
+
 	h.sums[key] += value
 }
 
@@ -257,7 +257,7 @@ func labelKey(labels []string) string {
 func Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		
+
 		registry := GetRegistry()
 		registry.mu.RLock()
 		defer registry.mu.RUnlock()
@@ -266,7 +266,7 @@ func Handler() http.Handler {
 		for _, counter := range registry.counters {
 			fmt.Fprintf(w, "# HELP %s %s\n", counter.Name, counter.Help)
 			fmt.Fprintf(w, "# TYPE %s counter\n", counter.Name)
-			
+
 			counter.mu.RLock()
 			for key, value := range counter.values {
 				if key == "" {
@@ -282,7 +282,7 @@ func Handler() http.Handler {
 		for _, gauge := range registry.gauges {
 			fmt.Fprintf(w, "# HELP %s %s\n", gauge.Name, gauge.Help)
 			fmt.Fprintf(w, "# TYPE %s gauge\n", gauge.Name)
-			
+
 			gauge.mu.RLock()
 			for key, value := range gauge.values {
 				if key == "" {
@@ -298,7 +298,7 @@ func Handler() http.Handler {
 		for _, histogram := range registry.histograms {
 			fmt.Fprintf(w, "# HELP %s %s\n", histogram.Name, histogram.Help)
 			fmt.Fprintf(w, "# TYPE %s histogram\n", histogram.Name)
-			
+
 			histogram.mu.RLock()
 			for key, counts := range histogram.counts {
 				cumulative := 0
@@ -365,13 +365,13 @@ func splitLabelKey(key string) []string {
 // RecordRequestMetrics 记录请求指标
 func RecordRequestMetrics(method, path string, status int, duration time.Duration) {
 	registry := GetRegistry()
-	
+
 	// 请求计数
 	counter := registry.GetCounter("paiban_http_requests_total")
 	if counter != nil {
 		counter.Inc(method, path, fmt.Sprintf("%d", status))
 	}
-	
+
 	// 请求延迟
 	histogram := registry.GetHistogram("paiban_http_request_duration_seconds")
 	if histogram != nil {
@@ -382,17 +382,17 @@ func RecordRequestMetrics(method, path string, status int, duration time.Duratio
 // RecordScheduleGeneration 记录排班生成指标
 func RecordScheduleGeneration(scenario string, success bool, duration time.Duration) {
 	registry := GetRegistry()
-	
+
 	status := "success"
 	if !success {
 		status = "failure"
 	}
-	
+
 	counter := registry.GetCounter("paiban_schedule_generation_total")
 	if counter != nil {
 		counter.Inc(scenario, status)
 	}
-	
+
 	histogram := registry.GetHistogram("paiban_schedule_generation_duration_seconds")
 	if histogram != nil {
 		histogram.Observe(duration.Seconds(), scenario)
@@ -402,12 +402,12 @@ func RecordScheduleGeneration(scenario string, success bool, duration time.Durat
 // RecordConstraintEvaluation 记录约束评估指标
 func RecordConstraintEvaluation(constraintType string, satisfied bool) {
 	registry := GetRegistry()
-	
+
 	result := "satisfied"
 	if !satisfied {
 		result = "violated"
 	}
-	
+
 	counter := registry.GetCounter("paiban_constraint_evaluations_total")
 	if counter != nil {
 		counter.Inc(constraintType, result)
@@ -440,4 +440,3 @@ func SetCoverageRate(orgID string, rate float64) {
 		gauge.Set(rate, orgID)
 	}
 }
-

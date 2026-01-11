@@ -231,4 +231,3 @@ func (m *Manager) Summary() map[string]interface{} {
 		"soft":  soft,
 	}
 }
-

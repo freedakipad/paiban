@@ -8,28 +8,28 @@ import (
 // CoverageMetrics 覆盖率指标
 type CoverageMetrics struct {
 	// 整体覆盖率
-	TotalShifts       int     `json:"total_shifts"`        // 总班次数
-	AssignedShifts    int     `json:"assigned_shifts"`     // 已分配班次数
-	OverallCoverage   float64 `json:"overall_coverage"`    // 整体覆盖率 (%)
-	
+	TotalShifts     int     `json:"total_shifts"`     // 总班次数
+	AssignedShifts  int     `json:"assigned_shifts"`  // 已分配班次数
+	OverallCoverage float64 `json:"overall_coverage"` // 整体覆盖率 (%)
+
 	// 按日期统计
-	DailyCoverage     map[string]DayCoverage `json:"daily_coverage"`     // 每日覆盖情况
-	
+	DailyCoverage map[string]DayCoverage `json:"daily_coverage"` // 每日覆盖情况
+
 	// 按班次类型统计
-	ShiftTypeCoverage map[string]float64     `json:"shift_type_coverage"` // 按班次类型覆盖率
-	
+	ShiftTypeCoverage map[string]float64 `json:"shift_type_coverage"` // 按班次类型覆盖率
+
 	// 按技能需求统计
-	SkillCoverage     map[string]float64     `json:"skill_coverage"`      // 按技能覆盖率
-	
+	SkillCoverage map[string]float64 `json:"skill_coverage"` // 按技能覆盖率
+
 	// 按时段统计
-	HourlyCoverage    map[int]float64        `json:"hourly_coverage"`     // 按小时覆盖率 (0-23)
-	
+	HourlyCoverage map[int]float64 `json:"hourly_coverage"` // 按小时覆盖率 (0-23)
+
 	// 人力需求满足度
-	DemandSatisfaction float64               `json:"demand_satisfaction"` // 需求满足度
-	
+	DemandSatisfaction float64 `json:"demand_satisfaction"` // 需求满足度
+
 	// 问题识别
-	UncoveredShifts   []UncoveredShift       `json:"uncovered_shifts"`    // 未覆盖班次
-	Understaffed      []UnderstaffedPeriod   `json:"understaffed"`        // 人手不足时段
+	UncoveredShifts []UncoveredShift     `json:"uncovered_shifts"` // 未覆盖班次
+	Understaffed    []UnderstaffedPeriod `json:"understaffed"`     // 人手不足时段
 }
 
 // DayCoverage 每日覆盖情况
@@ -44,12 +44,12 @@ type DayCoverage struct {
 
 // UncoveredShift 未覆盖班次
 type UncoveredShift struct {
-	ShiftID      string   `json:"shift_id"`
-	Date         string   `json:"date"`
-	StartTime    string   `json:"start_time"`
-	EndTime      string   `json:"end_time"`
-	RequiredSkill string  `json:"required_skill"`
-	Position     string   `json:"position"`
+	ShiftID       string `json:"shift_id"`
+	Date          string `json:"date"`
+	StartTime     string `json:"start_time"`
+	EndTime       string `json:"end_time"`
+	RequiredSkill string `json:"required_skill"`
+	Position      string `json:"position"`
 }
 
 // UnderstaffedPeriod 人手不足时段
@@ -125,15 +125,15 @@ func (c *CoverageAnalyzer) Analyze(shifts []*ShiftInfo, assignments []*Assignmen
 
 	// 按日期统计
 	dailyStats := make(map[string]*DayCoverage)
-	
+
 	// 按班次类型统计
 	shiftTypeTotals := make(map[string]int)
 	shiftTypeAssigned := make(map[string]int)
-	
+
 	// 按技能统计
 	skillTotals := make(map[string]int)
 	skillAssigned := make(map[string]int)
-	
+
 	// 按小时统计
 	hourlyRequired := make(map[int]int)
 	hourlyAssigned := make(map[int]int)
@@ -278,7 +278,7 @@ func (c *CoverageAnalyzer) identifyUnderstaffed(shifts []*ShiftInfo, assignments
 
 	for _, shift := range shifts {
 		_, isAssigned := assignmentMapLocal[shift.ID]
-		
+
 		startHour := shift.StartTime.Hour()
 		endHour := shift.EndTime.Hour()
 		if endHour <= startHour {
@@ -297,7 +297,7 @@ func (c *CoverageAnalyzer) identifyUnderstaffed(shifts []*ShiftInfo, assignments
 	// 检查每个时段
 	for key, required := range hourlyRequiredLocal {
 		assigned := hourlyStaff[key]
-		
+
 		// 检查是否低于最低需求
 		minRequired := c.minStaffPerHour[key.hour]
 		if minRequired > 0 && assigned < minRequired {
@@ -383,7 +383,7 @@ func (c *CoverageAnalyzer) AnalyzeTimeRange(shifts []*ShiftInfo, assignments []*
 // GenerateCoverageReport 生成覆盖率报告
 func (c *CoverageAnalyzer) GenerateCoverageReport(metrics *CoverageMetrics) string {
 	report := "=== 覆盖率分析报告 ===\n\n"
-	
+
 	report += "【整体覆盖情况】\n"
 	report += "  总班次数: %d\n"
 	report += "  已分配班次: %d\n"
@@ -409,4 +409,3 @@ func (c *CoverageAnalyzer) GenerateCoverageReport(metrics *CoverageMetrics) stri
 
 	return report
 }
-

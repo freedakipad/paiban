@@ -12,12 +12,12 @@ import (
 type MoveType int
 
 const (
-	MoveSwap      MoveType = iota // 交换两个员工的班次
-	MoveRelocate                  // 重新分配员工到不同班次
-	MoveInsert                    // 插入新分配
-	MoveRemove                    // 移除分配
-	Move2Opt                      // 2-opt改进
-	MoveChain                     // 链式移动
+	MoveSwap     MoveType = iota // 交换两个员工的班次
+	MoveRelocate                 // 重新分配员工到不同班次
+	MoveInsert                   // 插入新分配
+	MoveRemove                   // 移除分配
+	Move2Opt                     // 2-opt改进
+	MoveChain                    // 链式移动
 )
 
 // Move 邻域移动操作
@@ -33,7 +33,7 @@ type Move struct {
 
 // NeighborhoodGenerator 邻域生成器
 type NeighborhoodGenerator struct {
-	rng        *rand.Rand
+	rng         *rand.Rand
 	moveWeights map[MoveType]float64
 }
 
@@ -59,7 +59,7 @@ func (n *NeighborhoodGenerator) GenerateNeighbor(current *Solution, employees []
 	}
 
 	moveType := n.selectMoveType()
-	
+
 	switch moveType {
 	case MoveSwap:
 		return n.generateSwapMove(current, employees)
@@ -82,14 +82,14 @@ func (n *NeighborhoodGenerator) GenerateNeighbor(current *Solution, employees []
 func (n *NeighborhoodGenerator) selectMoveType() MoveType {
 	r := n.rng.Float64()
 	cumulative := 0.0
-	
+
 	for moveType, weight := range n.moveWeights {
 		cumulative += weight
 		if r < cumulative {
 			return moveType
 		}
 	}
-	
+
 	return MoveSwap
 }
 
@@ -101,7 +101,7 @@ func (n *NeighborhoodGenerator) generateSwapMove(current *Solution, _ []*model.E
 	}
 
 	neighbor := current.Clone()
-	
+
 	// 随机选择两个分配
 	i := n.rng.Intn(len(neighbor.Assignments))
 	j := n.rng.Intn(len(neighbor.Assignments))
@@ -110,7 +110,7 @@ func (n *NeighborhoodGenerator) generateSwapMove(current *Solution, _ []*model.E
 	}
 
 	// 交换员工ID
-	neighbor.Assignments[i].EmployeeID, neighbor.Assignments[j].EmployeeID = 
+	neighbor.Assignments[i].EmployeeID, neighbor.Assignments[j].EmployeeID =
 		neighbor.Assignments[j].EmployeeID, neighbor.Assignments[i].EmployeeID
 
 	return neighbor
@@ -124,19 +124,19 @@ func (n *NeighborhoodGenerator) generateRelocateMove(current *Solution, _ []*mod
 	}
 
 	neighbor := current.Clone()
-	
+
 	// 随机选择一个分配
 	idx := n.rng.Intn(len(neighbor.Assignments))
 	assignment := neighbor.Assignments[idx]
-	
+
 	// 随机选择一个新班次
 	newShift := shifts[n.rng.Intn(len(shifts))]
-	
+
 	// 检查是否是不同班次
 	if assignment.ShiftID == newShift.ID {
 		return nil
 	}
-	
+
 	// 更新分配
 	assignment.ShiftID = newShift.ID
 
@@ -151,35 +151,35 @@ func (n *NeighborhoodGenerator) generateInsertMove(current *Solution, employees 
 	}
 
 	neighbor := current.Clone()
-	
+
 	// 查找未分配的班次
 	assignedShifts := make(map[string]bool)
 	for _, a := range neighbor.Assignments {
 		assignedShifts[a.ShiftID.String()] = true
 	}
-	
+
 	var unassignedShifts []*model.Shift
 	for _, s := range shifts {
 		if !assignedShifts[s.ID.String()] {
 			unassignedShifts = append(unassignedShifts, s)
 		}
 	}
-	
+
 	if len(unassignedShifts) == 0 {
 		return nil
 	}
-	
+
 	// 随机选择未分配的班次和员工
 	shift := unassignedShifts[n.rng.Intn(len(unassignedShifts))]
 	employee := employees[n.rng.Intn(len(employees))]
-	
+
 	// 创建新分配
 	newAssignment := &model.Assignment{
 		ShiftID:    shift.ID,
 		EmployeeID: employee.ID,
 		Status:     "scheduled",
 	}
-	
+
 	neighbor.Assignments = append(neighbor.Assignments, newAssignment)
 	return neighbor
 }
@@ -192,11 +192,11 @@ func (n *NeighborhoodGenerator) generateRemoveMove(current *Solution) *Solution 
 	}
 
 	neighbor := current.Clone()
-	
+
 	// 随机选择一个分配移除
 	idx := n.rng.Intn(len(neighbor.Assignments))
 	neighbor.Assignments = append(neighbor.Assignments[:idx], neighbor.Assignments[idx+1:]...)
-	
+
 	return neighbor
 }
 
@@ -208,20 +208,20 @@ func (n *NeighborhoodGenerator) generate2OptMove(current *Solution) *Solution {
 	}
 
 	neighbor := current.Clone()
-	
+
 	// 随机选择两个位置
 	i := n.rng.Intn(len(neighbor.Assignments) - 1)
 	j := i + 2 + n.rng.Intn(len(neighbor.Assignments)-i-2)
 	if j >= len(neighbor.Assignments) {
 		j = len(neighbor.Assignments) - 1
 	}
-	
+
 	// 反转i到j之间的序列
 	for left, right := i, j; left < right; left, right = left+1, right-1 {
-		neighbor.Assignments[left], neighbor.Assignments[right] = 
+		neighbor.Assignments[left], neighbor.Assignments[right] =
 			neighbor.Assignments[right], neighbor.Assignments[left]
 	}
-	
+
 	return neighbor
 }
 
@@ -233,42 +233,42 @@ func (n *NeighborhoodGenerator) generateChainMove(current *Solution, _ []*model.
 	}
 
 	neighbor := current.Clone()
-	
+
 	// 随机选择链长度 (2-4)
 	chainLen := 2 + n.rng.Intn(3)
 	if chainLen > len(neighbor.Assignments) {
 		chainLen = len(neighbor.Assignments)
 	}
-	
+
 	// 随机选择链的起始位置
 	indices := make([]int, chainLen)
 	for i := 0; i < chainLen; i++ {
 		indices[i] = n.rng.Intn(len(neighbor.Assignments))
 	}
-	
+
 	// 链式移动员工ID
 	firstEmployee := neighbor.Assignments[indices[0]].EmployeeID
-	
+
 	for i := 0; i < chainLen-1; i++ {
 		neighbor.Assignments[indices[i]].EmployeeID = neighbor.Assignments[indices[i+1]].EmployeeID
 	}
-	
+
 	neighbor.Assignments[indices[chainLen-1]].EmployeeID = firstEmployee
-	
+
 	return neighbor
 }
 
 // GenerateBatch 批量生成邻域解
 func (n *NeighborhoodGenerator) GenerateBatch(current *Solution, employees []*model.Employee, shifts []*model.Shift, count int) []*Solution {
 	results := make([]*Solution, 0, count)
-	
+
 	for i := 0; i < count; i++ {
 		neighbor := n.GenerateNeighbor(current, employees, shifts)
 		if neighbor != nil {
 			results = append(results, neighbor)
 		}
 	}
-	
+
 	return results
 }
 
@@ -276,4 +276,3 @@ func (n *NeighborhoodGenerator) GenerateBatch(current *Solution, employees []*mo
 func (n *NeighborhoodGenerator) SetMoveWeights(weights map[MoveType]float64) {
 	n.moveWeights = weights
 }
-

@@ -176,4 +176,3 @@ func createAssignmentWithTime(date, start, end string) *model.Assignment {
 		Status:    "scheduled",
 	}
 }
-

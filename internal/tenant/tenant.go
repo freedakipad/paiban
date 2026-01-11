@@ -18,24 +18,24 @@ var (
 
 // Tenant 租户
 type Tenant struct {
-	ID          uuid.UUID     `json:"id"`
-	Code        string        `json:"code"`         // 租户编码
-	Name        string        `json:"name"`         // 租户名称
-	Type        string        `json:"type"`         // enterprise/individual
-	Status      string        `json:"status"`       // active/suspended/expired
-	Settings    TenantSettings `json:"settings"`
-	CreatedAt   time.Time     `json:"created_at"`
-	ExpiredAt   *time.Time    `json:"expired_at,omitempty"`
+	ID        uuid.UUID      `json:"id"`
+	Code      string         `json:"code"`   // 租户编码
+	Name      string         `json:"name"`   // 租户名称
+	Type      string         `json:"type"`   // enterprise/individual
+	Status    string         `json:"status"` // active/suspended/expired
+	Settings  TenantSettings `json:"settings"`
+	CreatedAt time.Time      `json:"created_at"`
+	ExpiredAt *time.Time     `json:"expired_at,omitempty"`
 }
 
 // TenantSettings 租户配置
 type TenantSettings struct {
-	MaxEmployees    int      `json:"max_employees"`     // 最大员工数
-	MaxOrders       int      `json:"max_orders_per_day"` // 每日最大订单数
-	AllowedScenarios []string `json:"allowed_scenarios"` // 允许的场景
-	Features        []string `json:"features"`          // 启用的功能
-	APIRateLimit    int      `json:"api_rate_limit"`    // API速率限制
-	DataRetention   int      `json:"data_retention_days"` // 数据保留天数
+	MaxEmployees     int      `json:"max_employees"`       // 最大员工数
+	MaxOrders        int      `json:"max_orders_per_day"`  // 每日最大订单数
+	AllowedScenarios []string `json:"allowed_scenarios"`   // 允许的场景
+	Features         []string `json:"features"`            // 启用的功能
+	APIRateLimit     int      `json:"api_rate_limit"`      // API速率限制
+	DataRetention    int      `json:"data_retention_days"` // 数据保留天数
 }
 
 // IsActive 检查租户是否活跃
@@ -177,13 +177,12 @@ func DefaultTenantSettings() TenantSettings {
 // CreateDefaultTenant 创建默认租户（开发测试用）
 func CreateDefaultTenant() *Tenant {
 	return &Tenant{
-		ID:       uuid.New(),
-		Code:     "default",
-		Name:     "默认租户",
-		Type:     "enterprise",
-		Status:   "active",
-		Settings: DefaultTenantSettings(),
+		ID:        uuid.New(),
+		Code:      "default",
+		Name:      "默认租户",
+		Type:      "enterprise",
+		Status:    "active",
+		Settings:  DefaultTenantSettings(),
 		CreatedAt: time.Now(),
 	}
 }
-

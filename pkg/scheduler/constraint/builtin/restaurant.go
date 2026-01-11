@@ -14,8 +14,8 @@ import (
 // 确保高峰时段有足够的员工在岗
 type PeakHoursCoverageConstraint struct {
 	*BaseConstraint
-	peakHours    []string // 高峰时段列表，格式 "HH:MM-HH:MM"
-	minStaff     int      // 高峰期最少人数
+	peakHours []string // 高峰时段列表，格式 "HH:MM-HH:MM"
+	minStaff  int      // 高峰期最少人数
 }
 
 // NewPeakHoursCoverageConstraint 创建高峰期覆盖约束
@@ -390,4 +390,3 @@ func countSplitShifts(assignments []*model.Assignment) int {
 	}
 	return count
 }
-

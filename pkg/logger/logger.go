@@ -111,17 +111,17 @@ func Get() *zerolog.Logger {
 // WithContext 从上下文创建日志器
 func WithContext(ctx context.Context) *zerolog.Logger {
 	l := Get().With().Logger()
-	
+
 	// 添加请求ID
 	if reqID, ok := ctx.Value("request_id").(string); ok {
 		l = l.With().Str("request_id", reqID).Logger()
 	}
-	
+
 	// 添加组织ID
 	if orgID, ok := ctx.Value("org_id").(string); ok {
 		l = l.With().Str("org_id", orgID).Logger()
 	}
-	
+
 	return &l
 }
 
@@ -207,4 +207,3 @@ func (l *SchedulerLogger) ScheduleComplete(scheduleID string, duration time.Dura
 		Float64("score", score).
 		Msg("排班生成完成")
 }
-

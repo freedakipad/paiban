@@ -101,4 +101,3 @@ func TestEmployee_CanServeLocation(t *testing.T) {
 		t.Error("远距离位置不应该可服务")
 	}
 }
-

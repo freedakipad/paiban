@@ -19,17 +19,17 @@ type Employee struct {
 	HireDate string    `json:"hire_date" db:"hire_date"`
 
 	// 排班相关
-	Position      string   `json:"position" db:"position"`
-	Skills        []string `json:"skills" db:"skills"`
+	Position       string   `json:"position" db:"position"`
+	Skills         []string `json:"skills" db:"skills"`
 	Certifications []string `json:"certifications,omitempty" db:"certifications"`
-	HourlyRate    float64  `json:"hourly_rate" db:"hourly_rate"`
+	HourlyRate     float64  `json:"hourly_rate" db:"hourly_rate"`
 
 	// 工作偏好
 	Preferences *EmployeePreferences `json:"preferences,omitempty" db:"preferences"`
 
 	// 服务区域（派出服务使用）
-	ServiceArea *ServiceArea `json:"service_area,omitempty" db:"service_area"`
-	HomeLocation *Location   `json:"home_location,omitempty" db:"home_location"`
+	ServiceArea  *ServiceArea `json:"service_area,omitempty" db:"service_area"`
+	HomeLocation *Location    `json:"home_location,omitempty" db:"home_location"`
 }
 
 // EmployeePreferences 员工偏好
@@ -45,31 +45,31 @@ type EmployeePreferences struct {
 
 // ServiceArea 服务区域
 type ServiceArea struct {
-	Districts []string `json:"districts,omitempty"` // 服务区/街道
+	Districts []string `json:"districts,omitempty"`  // 服务区/街道
 	MaxRadius float64  `json:"max_radius,omitempty"` // 最大服务半径（公里）
 	ZipCodes  []string `json:"zip_codes,omitempty"`  // 邮编列表
 }
 
 // EmployeeAvailability 员工可用性
 type EmployeeAvailability struct {
-	EmployeeID uuid.UUID `json:"employee_id" db:"employee_id"`
-	Date       string    `json:"date" db:"date"` // YYYY-MM-DD
-	Type       string    `json:"type" db:"type"` // available/unavailable/preferred
+	EmployeeID uuid.UUID   `json:"employee_id" db:"employee_id"`
+	Date       string      `json:"date" db:"date"` // YYYY-MM-DD
+	Type       string      `json:"type" db:"type"` // available/unavailable/preferred
 	TimeRanges []TimeRange `json:"time_ranges,omitempty" db:"time_ranges"`
-	Reason     string    `json:"reason,omitempty" db:"reason"`
+	Reason     string      `json:"reason,omitempty" db:"reason"`
 }
 
 // EmployeeContract 员工合同约束
 type EmployeeContract struct {
-	EmployeeID        uuid.UUID `json:"employee_id" db:"employee_id"`
-	ContractType      string    `json:"contract_type" db:"contract_type"` // full_time/part_time/temp
-	MinHoursPerWeek   int       `json:"min_hours_per_week" db:"min_hours_per_week"`
-	MaxHoursPerWeek   int       `json:"max_hours_per_week" db:"max_hours_per_week"`
-	MaxHoursPerDay    int       `json:"max_hours_per_day" db:"max_hours_per_day"`
-	MaxOvertimePerWeek int      `json:"max_overtime_per_week" db:"max_overtime_per_week"`
-	RestDaysPerWeek   int       `json:"rest_days_per_week" db:"rest_days_per_week"`
-	ValidFrom         string    `json:"valid_from" db:"valid_from"`
-	ValidTo           string    `json:"valid_to,omitempty" db:"valid_to"`
+	EmployeeID         uuid.UUID `json:"employee_id" db:"employee_id"`
+	ContractType       string    `json:"contract_type" db:"contract_type"` // full_time/part_time/temp
+	MinHoursPerWeek    int       `json:"min_hours_per_week" db:"min_hours_per_week"`
+	MaxHoursPerWeek    int       `json:"max_hours_per_week" db:"max_hours_per_week"`
+	MaxHoursPerDay     int       `json:"max_hours_per_day" db:"max_hours_per_day"`
+	MaxOvertimePerWeek int       `json:"max_overtime_per_week" db:"max_overtime_per_week"`
+	RestDaysPerWeek    int       `json:"rest_days_per_week" db:"rest_days_per_week"`
+	ValidFrom          string    `json:"valid_from" db:"valid_from"`
+	ValidTo            string    `json:"valid_to,omitempty" db:"valid_to"`
 }
 
 // IsActive 检查员工是否在职
@@ -123,4 +123,3 @@ func (e *Employee) CanServeLocation(loc Location) bool {
 
 	return true
 }
-

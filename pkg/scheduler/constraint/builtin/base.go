@@ -118,4 +118,3 @@ func (c *BaseConstraint) Evaluate(ctx *constraint.Context) (bool, int, []constra
 func (c *BaseConstraint) EvaluateAssignment(ctx *constraint.Context, a *model.Assignment) (bool, int) {
 	return true, 0
 }
-

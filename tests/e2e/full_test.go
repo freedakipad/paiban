@@ -179,7 +179,7 @@ func TestFullCarePlanWorkflow(t *testing.T) {
 		EndDate:     time.Now().AddDate(1, 0, 0).Format("2006-01-02"),
 		WeeklyHours: 10,
 		ServiceItems: []model.CareItem{
-			{Code: "basic_care", Name: "基础护理", Duration: 60, Frequency: 7}, // 每周7次
+			{Code: "basic_care", Name: "基础护理", Duration: 60, Frequency: 7},   // 每周7次
 			{Code: "health_check", Name: "健康检查", Duration: 30, Frequency: 1}, // 每周1次
 		},
 		Frequency: "5_times_per_week",
@@ -293,16 +293,16 @@ func createTestShifts(orgID uuid.UUID, days int) []*model.Shift {
 	for i := 0; i < days; i++ {
 		date := baseDate.AddDate(0, 0, i)
 		shifts[i] = &model.Shift{
-			BaseModel:   model.NewBaseModel(),
-			OrgID:       orgID,
-			Name:        fmt.Sprintf("日班-%s", date.Format("01-02")),
-			Code:        fmt.Sprintf("DAY-%s", date.Format("0102")),
-			ShiftType:   "day",
-			StartTime:   "09:00",
-			EndTime:     "17:00",
-			Duration:    480, // 8小时
-			BreakTime:   60,  // 1小时休息
-			IsActive:    true,
+			BaseModel: model.NewBaseModel(),
+			OrgID:     orgID,
+			Name:      fmt.Sprintf("日班-%s", date.Format("01-02")),
+			Code:      fmt.Sprintf("DAY-%s", date.Format("0102")),
+			ShiftType: "day",
+			StartTime: "09:00",
+			EndTime:   "17:00",
+			Duration:  480, // 8小时
+			BreakTime: 60,  // 1小时休息
+			IsActive:  true,
 		}
 	}
 	return shifts

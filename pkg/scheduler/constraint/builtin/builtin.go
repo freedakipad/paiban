@@ -93,11 +93,17 @@ func RegisterHousekeepingConstraints(manager *constraint.Manager, config map[str
 	// 家政行业资质要求（无犯罪证明等）
 	manager.Register(NewIndustryCertificationConstraint("housekeeping"))
 
-	// TODO: 添加家政特有约束
-	// - ServiceAreaMatch - 服务区域匹配
-	// - TravelTimeBuffer - 路程时间缓冲
-	// - CustomerPreference - 客户偏好
-	// - ServiceContinuity - 服务连续性
+	// 家政特有约束
+	// 服务区域匹配（硬约束）
+	manager.Register(NewServiceAreaMatchConstraint())
+
+	// 路程时间缓冲（软约束）
+	travelBuffer := getConfigInt(config, "travel_buffer_minutes", 30)
+	manager.Register(NewTravelTimeBufferConstraint(travelBuffer))
+
+	// 客户偏好（软约束）
+	preferenceWeight := getConfigInt(config, "customer_preference_weight", 50)
+	manager.Register(NewCustomerPreferenceConstraint(preferenceWeight))
 }
 
 // RegisterNursingConstraints 注册长护险场景约束
@@ -108,10 +114,21 @@ func RegisterNursingConstraints(manager *constraint.Manager, config map[string]i
 	// 长护险资质要求（护理员证、无犯罪证明等）
 	manager.Register(NewIndustryCertificationConstraint("nursing"))
 
-	// TODO: 添加长护险特有约束
-	// - CarePlanCompliance - 护理计划合规
-	// - CaregiverContinuity - 护理员连续性
-	// - ServiceTimeRegularity - 服务时间规律性
+	// 长护险特有约束
+	// 护理计划合规（硬约束）
+	manager.Register(NewCarePlanComplianceConstraint())
+
+	// 护理员连续性（软约束）
+	continuityWeight := getConfigInt(config, "caregiver_continuity_weight", 85)
+	manager.Register(NewCaregiverContinuityConstraint(continuityWeight))
+
+	// 服务时间规律性（软约束）
+	regularityWeight := getConfigInt(config, "service_regularity_weight", 60)
+	manager.Register(NewServiceTimeRegularityConstraint(regularityWeight))
+
+	// 每日最大服务患者数（硬约束）
+	maxPatients := getConfigInt(config, "max_patients_per_day", 4)
+	manager.Register(NewMaxPatientsPerDayConstraint(maxPatients))
 }
 
 // getConfigInt 从配置中获取整数
@@ -147,4 +164,3 @@ func getConfigFloat(config map[string]interface{}, key string, defaultVal float6
 	}
 	return defaultVal
 }
-

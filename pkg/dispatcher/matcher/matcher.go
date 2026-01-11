@@ -10,14 +10,14 @@ import (
 
 // MatchScore 匹配评分
 type MatchScore struct {
-	EmployeeID   string   `json:"employee_id"`
-	EmployeeName string   `json:"employee_name"`
-	TotalScore   float64  `json:"total_score"`
-	SkillScore   float64  `json:"skill_score"`
-	DistanceScore float64 `json:"distance_score"`
-	HistoryScore float64  `json:"history_score"`
+	EmployeeID    string   `json:"employee_id"`
+	EmployeeName  string   `json:"employee_name"`
+	TotalScore    float64  `json:"total_score"`
+	SkillScore    float64  `json:"skill_score"`
+	DistanceScore float64  `json:"distance_score"`
+	HistoryScore  float64  `json:"history_score"`
 	MatchedSkills []string `json:"matched_skills"`
-	Distance     float64  `json:"distance_km"`
+	Distance      float64  `json:"distance_km"`
 }
 
 // SkillMatcher 技能匹配器
@@ -30,19 +30,19 @@ func NewSkillMatcher() *SkillMatcher {
 	return &SkillMatcher{
 		skillWeights: map[string]float64{
 			// 护理技能
-			"基础护理":   1.0,
-			"专业护理":   1.5,
-			"康复训练":   1.8,
-			"心理疏导":   1.3,
-			"临终关怀":   2.0,
+			"基础护理": 1.0,
+			"专业护理": 1.5,
+			"康复训练": 1.8,
+			"心理疏导": 1.3,
+			"临终关怀": 2.0,
 			// 家政技能
-			"烹饪":      1.0,
-			"保洁":      0.8,
-			"婴儿护理":   1.5,
-			"老人护理":   1.5,
-			"月嫂服务":   1.8,
+			"烹饪":   1.0,
+			"保洁":   0.8,
+			"婴儿护理": 1.5,
+			"老人护理": 1.5,
+			"月嫂服务": 1.8,
 			// 默认权重
-			"default":  1.0,
+			"default": 1.0,
 		},
 	}
 }
@@ -180,7 +180,7 @@ type ComprehensiveMatcher struct {
 	skillMatcher    *SkillMatcher
 	distanceMatcher *DistanceMatcher
 	historyMatcher  *HistoryMatcher
-	
+
 	// 权重配置
 	skillWeight    float64
 	distanceWeight float64
@@ -264,4 +264,3 @@ func (c *ComprehensiveMatcher) FindBestMatch(order *model.ServiceOrder, employee
 	}
 	return &scores[0]
 }
-

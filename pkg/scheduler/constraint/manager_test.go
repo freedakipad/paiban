@@ -99,8 +99,8 @@ type MockConstraint struct {
 	penalty  int
 }
 
-func (m *MockConstraint) Name() string     { return m.name }
-func (m *MockConstraint) Type() Type       { return m.typ }
+func (m *MockConstraint) Name() string       { return m.name }
+func (m *MockConstraint) Type() Type         { return m.typ }
 func (m *MockConstraint) Category() Category { return m.category }
 func (m *MockConstraint) Weight() int {
 	if m.weight == 0 {

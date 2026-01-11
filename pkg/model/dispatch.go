@@ -16,23 +16,23 @@ type Customer struct {
 	Phone    string    `json:"phone" db:"phone"`
 	Address  string    `json:"address" db:"address"`
 	Location *Location `json:"location,omitempty" db:"location"`
-	Type     string    `json:"type" db:"type"`           // individual/household/enterprise
-	Status   string    `json:"status" db:"status"`       // active/inactive/suspended
+	Type     string    `json:"type" db:"type"`             // individual/household/enterprise
+	Status   string    `json:"status" db:"status"`         // active/inactive/suspended
 	Level    string    `json:"level,omitempty" db:"level"` // VIP等级
 	Notes    string    `json:"notes,omitempty" db:"notes"`
 
 	// 服务需求
-	ServiceNeeds    []ServiceNeed    `json:"service_needs,omitempty" db:"-"`
-	Preferences     *CustomerPrefs   `json:"preferences,omitempty" db:"preferences"`
-	PreferredEmpIDs []uuid.UUID      `json:"preferred_emp_ids,omitempty" db:"preferred_emp_ids"`
-	BlockedEmpIDs   []uuid.UUID      `json:"blocked_emp_ids,omitempty" db:"blocked_emp_ids"`
+	ServiceNeeds    []ServiceNeed  `json:"service_needs,omitempty" db:"-"`
+	Preferences     *CustomerPrefs `json:"preferences,omitempty" db:"preferences"`
+	PreferredEmpIDs []uuid.UUID    `json:"preferred_emp_ids,omitempty" db:"preferred_emp_ids"`
+	BlockedEmpIDs   []uuid.UUID    `json:"blocked_emp_ids,omitempty" db:"blocked_emp_ids"`
 }
 
 // CustomerPrefs 客户偏好
 type CustomerPrefs struct {
-	PreferredTimes    []string          `json:"preferred_times,omitempty"`    // 偏好服务时段
-	PreferredGender   string            `json:"preferred_gender,omitempty"`   // 偏好性别
-	LanguageRequired  string            `json:"language_required,omitempty"`  // 语言要求
+	PreferredTimes    []string          `json:"preferred_times,omitempty"`     // 偏好服务时段
+	PreferredGender   string            `json:"preferred_gender,omitempty"`    // 偏好性别
+	LanguageRequired  string            `json:"language_required,omitempty"`   // 语言要求
 	RequireSameWorker bool              `json:"require_same_worker,omitempty"` // 要求同一服务者
 	CustomPrefs       map[string]string `json:"custom,omitempty"`
 }
@@ -48,24 +48,24 @@ type ServiceNeed struct {
 // ServiceOrder 服务订单
 type ServiceOrder struct {
 	BaseModel
-	OrgID         uuid.UUID  `json:"org_id" db:"org_id"`
-	CustomerID    uuid.UUID  `json:"customer_id" db:"customer_id"`
-	OrderNo       string     `json:"order_no" db:"order_no"`
-	ServiceType   string     `json:"service_type" db:"service_type"`
-	ServiceDate   string     `json:"service_date" db:"service_date"` // YYYY-MM-DD
-	StartTime     string     `json:"start_time" db:"start_time"`     // HH:MM
-	EndTime       string     `json:"end_time" db:"end_time"`         // HH:MM
-	Duration      int        `json:"duration" db:"duration"`         // 分钟
-	Address       string     `json:"address" db:"address"`
-	Location      *Location  `json:"location,omitempty" db:"location"`
-	Status        string     `json:"status" db:"status"` // pending/assigned/in_progress/completed/cancelled
-	EmployeeID    *uuid.UUID `json:"employee_id,omitempty" db:"employee_id"`
-	Skills        []string   `json:"skills,omitempty" db:"skills"`
-	Priority      int        `json:"priority" db:"priority"`
-	Notes         string     `json:"notes,omitempty" db:"notes"`
-	Amount        float64    `json:"amount" db:"amount"`
-	AssignedAt    *time.Time `json:"assigned_at,omitempty" db:"assigned_at"`
-	CompletedAt   *time.Time `json:"completed_at,omitempty" db:"completed_at"`
+	OrgID       uuid.UUID  `json:"org_id" db:"org_id"`
+	CustomerID  uuid.UUID  `json:"customer_id" db:"customer_id"`
+	OrderNo     string     `json:"order_no" db:"order_no"`
+	ServiceType string     `json:"service_type" db:"service_type"`
+	ServiceDate string     `json:"service_date" db:"service_date"` // YYYY-MM-DD
+	StartTime   string     `json:"start_time" db:"start_time"`     // HH:MM
+	EndTime     string     `json:"end_time" db:"end_time"`         // HH:MM
+	Duration    int        `json:"duration" db:"duration"`         // 分钟
+	Address     string     `json:"address" db:"address"`
+	Location    *Location  `json:"location,omitempty" db:"location"`
+	Status      string     `json:"status" db:"status"` // pending/assigned/in_progress/completed/cancelled
+	EmployeeID  *uuid.UUID `json:"employee_id,omitempty" db:"employee_id"`
+	Skills      []string   `json:"skills,omitempty" db:"skills"`
+	Priority    int        `json:"priority" db:"priority"`
+	Notes       string     `json:"notes,omitempty" db:"notes"`
+	Amount      float64    `json:"amount" db:"amount"`
+	AssignedAt  *time.Time `json:"assigned_at,omitempty" db:"assigned_at"`
+	CompletedAt *time.Time `json:"completed_at,omitempty" db:"completed_at"`
 }
 
 // ServiceRecord 服务记录
@@ -80,7 +80,7 @@ type ServiceRecord struct {
 	CheckOutLoc   *Location  `json:"check_out_location,omitempty" db:"check_out_location"`
 	ActualMinutes int        `json:"actual_minutes" db:"actual_minutes"`
 	ServiceItems  []string   `json:"service_items,omitempty" db:"service_items"`
-	Rating        int        `json:"rating" db:"rating"`           // 1-5
+	Rating        int        `json:"rating" db:"rating"` // 1-5
 	Feedback      string     `json:"feedback,omitempty" db:"feedback"`
 	Status        string     `json:"status" db:"status"`           // checked_in/checked_out/verified
 	Photos        []string   `json:"photos,omitempty" db:"photos"` // 服务照片
@@ -89,26 +89,26 @@ type ServiceRecord struct {
 // CarePlan 护理计划（长护险）
 type CarePlan struct {
 	BaseModel
-	CustomerID      uuid.UUID   `json:"customer_id" db:"customer_id"`
-	PlanNo          string      `json:"plan_no" db:"plan_no"`
-	Level           int         `json:"level" db:"level"`                     // 护理等级 1-6
-	StartDate       string      `json:"start_date" db:"start_date"`
-	EndDate         string      `json:"end_date,omitempty" db:"end_date"`
-	WeeklyHours     int         `json:"weekly_hours" db:"weekly_hours"`       // 每周服务时长
-	ServiceItems    []CareItem  `json:"service_items" db:"service_items"`     // 服务项目
-	Frequency       string      `json:"frequency" db:"frequency"`             // 服务频率
-	PrimaryCarerID  *uuid.UUID  `json:"primary_carer_id,omitempty" db:"primary_carer_id"`
-	BackupCarerIDs  []uuid.UUID `json:"backup_carer_ids,omitempty" db:"backup_carer_ids"`
-	Status          string      `json:"status" db:"status"`                   // active/suspended/expired
-	Notes           string      `json:"notes,omitempty" db:"notes"`
+	CustomerID     uuid.UUID   `json:"customer_id" db:"customer_id"`
+	PlanNo         string      `json:"plan_no" db:"plan_no"`
+	Level          int         `json:"level" db:"level"` // 护理等级 1-6
+	StartDate      string      `json:"start_date" db:"start_date"`
+	EndDate        string      `json:"end_date,omitempty" db:"end_date"`
+	WeeklyHours    int         `json:"weekly_hours" db:"weekly_hours"`   // 每周服务时长
+	ServiceItems   []CareItem  `json:"service_items" db:"service_items"` // 服务项目
+	Frequency      string      `json:"frequency" db:"frequency"`         // 服务频率
+	PrimaryCarerID *uuid.UUID  `json:"primary_carer_id,omitempty" db:"primary_carer_id"`
+	BackupCarerIDs []uuid.UUID `json:"backup_carer_ids,omitempty" db:"backup_carer_ids"`
+	Status         string      `json:"status" db:"status"` // active/suspended/expired
+	Notes          string      `json:"notes,omitempty" db:"notes"`
 }
 
 // CareItem 护理服务项目
 type CareItem struct {
-	Code        string `json:"code"`
-	Name        string `json:"name"`
-	Frequency   int    `json:"frequency"`    // 每周次数
-	Duration    int    `json:"duration"`     // 每次时长（分钟）
+	Code         string `json:"code"`
+	Name         string `json:"name"`
+	Frequency    int    `json:"frequency"`               // 每周次数
+	Duration     int    `json:"duration"`                // 每次时长（分钟）
 	RequiresCert string `json:"requires_cert,omitempty"` // 所需资质
 }
 
@@ -158,4 +158,3 @@ func (o *ServiceOrder) NeedsDispatch() bool {
 func (cp *CarePlan) IsPlanActive() bool {
 	return cp.Status == "active"
 }
-

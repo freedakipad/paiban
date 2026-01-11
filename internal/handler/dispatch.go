@@ -12,12 +12,12 @@ import (
 
 // DispatchRequest 派单API请求
 type DispatchRequest struct {
-	Order       *model.ServiceOrder              `json:"order"`
-	Candidates  []*model.Employee                `json:"candidates"`
-	Customer    *model.Customer                  `json:"customer,omitempty"`
-	TodayOrders []*model.ServiceOrder            `json:"today_orders,omitempty"`
-	History     []model.CustomerEmployeeHistory  `json:"history,omitempty"`
-	MaxResults  int                              `json:"max_results,omitempty"`
+	Order       *model.ServiceOrder             `json:"order"`
+	Candidates  []*model.Employee               `json:"candidates"`
+	Customer    *model.Customer                 `json:"customer,omitempty"`
+	TodayOrders []*model.ServiceOrder           `json:"today_orders,omitempty"`
+	History     []model.CustomerEmployeeHistory `json:"history,omitempty"`
+	MaxResults  int                             `json:"max_results,omitempty"`
 }
 
 // BatchDispatchRequest 批量派单请求
@@ -29,24 +29,24 @@ type BatchDispatchRequest struct {
 
 // DispatchAPIResponse 派单API响应
 type DispatchAPIResponse struct {
-	Success     bool                       `json:"success"`
-	Data        *dispatcher.DispatchResponse `json:"data,omitempty"`
-	Error       string                     `json:"error,omitempty"`
+	Success bool                         `json:"success"`
+	Data    *dispatcher.DispatchResponse `json:"data,omitempty"`
+	Error   string                       `json:"error,omitempty"`
 }
 
 // BatchDispatchAPIResponse 批量派单API响应
 type BatchDispatchAPIResponse struct {
-	Success bool                         `json:"success"`
+	Success bool                           `json:"success"`
 	Data    []*dispatcher.DispatchResponse `json:"data,omitempty"`
-	Summary *BatchSummary                 `json:"summary,omitempty"`
-	Error   string                        `json:"error,omitempty"`
+	Summary *BatchSummary                  `json:"summary,omitempty"`
+	Error   string                         `json:"error,omitempty"`
 }
 
 // BatchSummary 批量派单汇总
 type BatchSummary struct {
-	TotalOrders      int `json:"total_orders"`
-	SuccessCount     int `json:"success_count"`
-	FailCount        int `json:"fail_count"`
+	TotalOrders       int `json:"total_orders"`
+	SuccessCount      int `json:"success_count"`
+	FailCount         int `json:"fail_count"`
 	AssignedEmployees int `json:"assigned_employees"`
 }
 
@@ -163,10 +163,10 @@ type OptimalRouteRequest struct {
 
 // OptimalRouteResponse 最优路线响应
 type OptimalRouteResponse struct {
-	Success      bool                  `json:"success"`
-	Orders       []*model.ServiceOrder `json:"orders,omitempty"`
-	TotalDistance float64              `json:"total_distance_km,omitempty"`
-	Error        string                `json:"error,omitempty"`
+	Success       bool                  `json:"success"`
+	Orders        []*model.ServiceOrder `json:"orders,omitempty"`
+	TotalDistance float64               `json:"total_distance_km,omitempty"`
+	Error         string                `json:"error,omitempty"`
 }
 
 // OptimalRouteHandler 计算最优路线
@@ -215,4 +215,3 @@ func sendDispatchError(w http.ResponseWriter, message string, status int) {
 		Error:   message,
 	})
 }
-

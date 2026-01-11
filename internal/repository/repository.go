@@ -19,15 +19,15 @@ type Repository[T any] interface {
 
 // ListFilter 列表查询过滤器
 type ListFilter struct {
-	OrgID     *uuid.UUID         `json:"org_id,omitempty"`
-	Status    string             `json:"status,omitempty"`
-	Search    string             `json:"search,omitempty"`
-	StartDate string             `json:"start_date,omitempty"`
-	EndDate   string             `json:"end_date,omitempty"`
-	Offset    int                `json:"offset"`
-	Limit     int                `json:"limit"`
-	OrderBy   string             `json:"order_by,omitempty"`
-	OrderDir  string             `json:"order_dir,omitempty"` // asc/desc
+	OrgID     *uuid.UUID             `json:"org_id,omitempty"`
+	Status    string                 `json:"status,omitempty"`
+	Search    string                 `json:"search,omitempty"`
+	StartDate string                 `json:"start_date,omitempty"`
+	EndDate   string                 `json:"end_date,omitempty"`
+	Offset    int                    `json:"offset"`
+	Limit     int                    `json:"limit"`
+	OrderBy   string                 `json:"order_by,omitempty"`
+	OrderDir  string                 `json:"order_dir,omitempty"` // asc/desc
 	Extra     map[string]interface{} `json:"extra,omitempty"`
 }
 
@@ -93,4 +93,3 @@ type TxFunc func(tx Tx) error
 type Scanner interface {
 	Scan(dest ...interface{}) error
 }
-

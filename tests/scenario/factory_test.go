@@ -125,7 +125,7 @@ func TestFactoryShiftRotation(t *testing.T) {
 
 	// 创建违规场景：夜班后次日早班
 	ctx.SetAssignments([]*model.Assignment{
-		createAssignment(emp.ID, nightShift.ID, "2024-01-15", "00:00", "08:00"),  // 夜班
+		createAssignment(emp.ID, nightShift.ID, "2024-01-15", "00:00", "08:00"),   // 夜班
 		createAssignment(emp.ID, morningShift.ID, "2024-01-16", "08:00", "16:00"), // 次日早班
 	})
 
@@ -167,4 +167,3 @@ func createFactoryEmployee(name, position string, skills []string, _ string) *mo
 		// 班组信息可以通过扩展字段存储
 	}
 }
-

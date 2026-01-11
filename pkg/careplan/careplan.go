@@ -21,12 +21,12 @@ type PlanManager struct {
 func NewPlanManager() *PlanManager {
 	return &PlanManager{
 		levelHours: map[int]int{
-			1: 3,   // 一级：每周3小时
-			2: 5,   // 二级：每周5小时
-			3: 7,   // 三级：每周7小时
-			4: 10,  // 四级：每周10小时
-			5: 15,  // 五级：每周15小时
-			6: 20,  // 六级：每周20小时
+			1: 3,  // 一级：每周3小时
+			2: 5,  // 二级：每周5小时
+			3: 7,  // 三级：每周7小时
+			4: 10, // 四级：每周10小时
+			5: 15, // 五级：每周15小时
+			6: 20, // 六级：每周20小时
 		},
 		levelItems: map[int][]string{
 			1: {"基础生活照料", "健康监测"},
@@ -56,7 +56,7 @@ func (pm *PlanManager) CreatePlan(customerID uuid.UUID, level int, startDate str
 		items[i] = model.CareItem{
 			Code:      fmt.Sprintf("CARE_%d_%d", level, i+1),
 			Name:      name,
-			Frequency: 2, // 每周2次
+			Frequency: 2,                                     // 每周2次
 			Duration:  weeklyHours * 60 / 2 / len(itemNames), // 平均分配时长
 		}
 	}
@@ -102,7 +102,7 @@ func (pm *PlanManager) GenerateServiceOrders(plan *model.CarePlan, customer *mod
 
 	for current := start; !current.After(end); current = current.AddDate(0, 0, 1) {
 		weekday := int(current.Weekday())
-		
+
 		// 检查是否是服务日
 		isServiceDay := false
 		for _, day := range serviceDays {
@@ -227,14 +227,14 @@ func (pm *PlanManager) GetRecommendedCarers(plan *model.CarePlan, carers []*mode
 // getPlanSkillRequirements 获取护理计划所需技能
 func (pm *PlanManager) getPlanSkillRequirements(level int) []string {
 	skills := []string{"护理员证", "健康证"}
-	
+
 	switch level {
 	case 5, 6:
 		skills = append(skills, "康复训练", "专业护理")
 	case 3, 4:
 		skills = append(skills, "基础护理")
 	}
-	
+
 	return skills
 }
 
@@ -296,4 +296,3 @@ func calculateEndTime(start string, durationMinutes int) string {
 	t = t.Add(time.Duration(durationMinutes) * time.Minute)
 	return t.Format("15:04")
 }
-

@@ -58,28 +58,28 @@ type Assignment struct {
 // Schedule 排班计划
 type Schedule struct {
 	BaseModel
-	OrgID       uuid.UUID    `json:"org_id" db:"org_id"`
-	Name        string       `json:"name" db:"name"`
-	StartDate   string       `json:"start_date" db:"start_date"`
-	EndDate     string       `json:"end_date" db:"end_date"`
-	Status      string       `json:"status" db:"status"` // draft/published/archived
-	Version     int          `json:"version" db:"version"`
-	CreatedBy   *uuid.UUID   `json:"created_by,omitempty" db:"created_by"`
-	PublishedAt *time.Time   `json:"published_at,omitempty" db:"published_at"`
-	Assignments []Assignment `json:"assignments,omitempty" db:"-"`
+	OrgID       uuid.UUID      `json:"org_id" db:"org_id"`
+	Name        string         `json:"name" db:"name"`
+	StartDate   string         `json:"start_date" db:"start_date"`
+	EndDate     string         `json:"end_date" db:"end_date"`
+	Status      string         `json:"status" db:"status"` // draft/published/archived
+	Version     int            `json:"version" db:"version"`
+	CreatedBy   *uuid.UUID     `json:"created_by,omitempty" db:"created_by"`
+	PublishedAt *time.Time     `json:"published_at,omitempty" db:"published_at"`
+	Assignments []Assignment   `json:"assignments,omitempty" db:"-"`
 	Statistics  *ScheduleStats `json:"statistics,omitempty" db:"-"`
 }
 
 // ScheduleStats 排班统计
 type ScheduleStats struct {
-	TotalAssignments   int     `json:"total_assignments"`
-	TotalEmployees     int     `json:"total_employees"`
-	TotalHours         float64 `json:"total_hours"`
-	OvertimeHours      float64 `json:"overtime_hours"`
-	UnfilledShifts     int     `json:"unfilled_shifts"`
-	ConstraintScore    float64 `json:"constraint_score"`    // 约束满足率
-	FairnessScore      float64 `json:"fairness_score"`      // 公平性得分
-	PreferenceScore    float64 `json:"preference_score"`    // 偏好满足率
+	TotalAssignments int     `json:"total_assignments"`
+	TotalEmployees   int     `json:"total_employees"`
+	TotalHours       float64 `json:"total_hours"`
+	OvertimeHours    float64 `json:"overtime_hours"`
+	UnfilledShifts   int     `json:"unfilled_shifts"`
+	ConstraintScore  float64 `json:"constraint_score"` // 约束满足率
+	FairnessScore    float64 `json:"fairness_score"`   // 公平性得分
+	PreferenceScore  float64 `json:"preference_score"` // 偏好满足率
 }
 
 // SwapRequest 换班请求
@@ -121,4 +121,3 @@ func (s *Shift) IsNightShift() bool {
 func (s *Shift) IsSplitShift() bool {
 	return s.ShiftType == "split"
 }
-

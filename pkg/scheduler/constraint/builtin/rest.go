@@ -4,6 +4,7 @@ package builtin
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/paiban/paiban/pkg/model"
 	"github.com/paiban/paiban/pkg/scheduler/constraint"
@@ -200,25 +201,20 @@ func (c *MaxConsecutiveDaysConstraint) EvaluateAssignment(ctx *constraint.Contex
 }
 
 // isConsecutiveDate 检查两个日期是否连续
-// 简化实现，仅比较最后两位（日）
+// 支持同月和跨月场景
 func isConsecutiveDate(date1, date2 string) bool {
 	if len(date1) != 10 || len(date2) != 10 {
 		return false
 	}
 
-	// 比较月份和日期
-	// 格式: YYYY-MM-DD
-	// 简化：假设同一个月内
-	if date1[:7] == date2[:7] {
-		// 同月，比较日期
-		day1 := int(date1[8]-'0')*10 + int(date1[9]-'0')
-		day2 := int(date2[8]-'0')*10 + int(date2[9]-'0')
-		return day2-day1 == 1
+	// 解析日期
+	t1, err1 := time.Parse("2006-01-02", date1)
+	t2, err2 := time.Parse("2006-01-02", date2)
+	if err1 != nil || err2 != nil {
+		return false
 	}
 
-	// 跨月的情况需要更复杂的处理
-	// 这里简化处理，返回false
-	// TODO: 完整实现跨月连续日期检查
-	return false
+	// 计算日期差值
+	diff := t2.Sub(t1)
+	return diff == 24*time.Hour
 }
-

@@ -16,24 +16,24 @@ type EmployeeInfo struct {
 // FairnessMetrics 公平性指标
 type FairnessMetrics struct {
 	// 工时公平性
-	WorkloadGini           float64            `json:"workload_gini"`            // 工时基尼系数 (0=完全公平, 1=完全不公平)
-	WorkloadVariance       float64            `json:"workload_variance"`        // 工时方差
-	WorkloadStdDev         float64            `json:"workload_std_dev"`         // 工时标准差
-	AvgHoursPerEmployee    float64            `json:"avg_hours_per_employee"`   // 人均工时
-	MaxHours               float64            `json:"max_hours"`                // 最大工时
-	MinHours               float64            `json:"min_hours"`                // 最小工时
-	HoursRange             float64            `json:"hours_range"`              // 工时极差
-	
+	WorkloadGini        float64 `json:"workload_gini"`          // 工时基尼系数 (0=完全公平, 1=完全不公平)
+	WorkloadVariance    float64 `json:"workload_variance"`      // 工时方差
+	WorkloadStdDev      float64 `json:"workload_std_dev"`       // 工时标准差
+	AvgHoursPerEmployee float64 `json:"avg_hours_per_employee"` // 人均工时
+	MaxHours            float64 `json:"max_hours"`              // 最大工时
+	MinHours            float64 `json:"min_hours"`              // 最小工时
+	HoursRange          float64 `json:"hours_range"`            // 工时极差
+
 	// 班次类型公平性
-	ShiftTypeDistribution  map[string]float64 `json:"shift_type_distribution"`  // 各班次类型分布
-	NightShiftGini         float64            `json:"night_shift_gini"`         // 夜班分配基尼系数
-	WeekendShiftGini       float64            `json:"weekend_shift_gini"`       // 周末班分配基尼系数
-	
+	ShiftTypeDistribution map[string]float64 `json:"shift_type_distribution"` // 各班次类型分布
+	NightShiftGini        float64            `json:"night_shift_gini"`        // 夜班分配基尼系数
+	WeekendShiftGini      float64            `json:"weekend_shift_gini"`      // 周末班分配基尼系数
+
 	// 员工级别统计
-	EmployeeStats          []EmployeeStat     `json:"employee_stats"`           // 员工统计
-	
+	EmployeeStats []EmployeeStat `json:"employee_stats"` // 员工统计
+
 	// 综合评分
-	OverallFairnessScore   float64            `json:"overall_fairness_score"`   // 综合公平性评分 (0-100)
+	OverallFairnessScore float64 `json:"overall_fairness_score"` // 综合公平性评分 (0-100)
 }
 
 // EmployeeStat 员工统计
@@ -86,7 +86,7 @@ func (f *FairnessAnalyzer) Analyze(assignments []*AssignmentInfo, employees []*E
 	hours := make([]float64, len(employeeStats))
 	nightShifts := make([]float64, len(employeeStats))
 	weekendShifts := make([]float64, len(employeeStats))
-	
+
 	for i, stat := range employeeStats {
 		hours[i] = stat.TotalHours
 		nightShifts[i] = float64(stat.NightShifts)
@@ -191,7 +191,7 @@ func (f *FairnessAnalyzer) calculateShiftHours(start, end time.Time) float64 {
 func (f *FairnessAnalyzer) isNightShift(start, end time.Time) bool {
 	startHour := start.Hour()
 	endHour := end.Hour()
-	
+
 	// 夜班定义：开始时间在22点后或结束时间在6点前
 	return startHour >= f.nightShiftStart || endHour <= f.nightShiftEnd
 }
@@ -304,7 +304,7 @@ func (f *FairnessAnalyzer) calculateShiftTypeDistribution(assignments []*Assignm
 // classifyShiftType 分类班次类型
 func (f *FairnessAnalyzer) classifyShiftType(start, end time.Time) string {
 	startHour := start.Hour()
-	
+
 	if startHour >= 6 && startHour < 14 {
 		return "morning"
 	} else if startHour >= 14 && startHour < 22 {
@@ -359,4 +359,3 @@ func (f *FairnessAnalyzer) CompareSchedules(schedule1, schedule2 []*AssignmentIn
 		"schedule2_overall_score": metrics2.OverallFairnessScore,
 	}
 }
-

@@ -40,22 +40,22 @@ type DispatchRequest struct {
 
 // DispatchResponse 派单响应
 type DispatchResponse struct {
-	OrderID       string             `json:"order_id"`
-	Success       bool               `json:"success"`
-	BestMatch     *CandidateScore    `json:"best_match,omitempty"`
-	Alternatives  []CandidateScore   `json:"alternatives,omitempty"`
-	Reason        string             `json:"reason,omitempty"`
+	OrderID      string           `json:"order_id"`
+	Success      bool             `json:"success"`
+	BestMatch    *CandidateScore  `json:"best_match,omitempty"`
+	Alternatives []CandidateScore `json:"alternatives,omitempty"`
+	Reason       string           `json:"reason,omitempty"`
 }
 
 // CandidateScore 候选人评分
 type CandidateScore struct {
-	Employee      *model.Employee `json:"employee"`
-	Score         float64         `json:"score"`
-	Feasible      bool            `json:"feasible"`
-	Violations    []string        `json:"violations,omitempty"`
-	MatchReasons  []string        `json:"match_reasons,omitempty"`
-	Distance      float64         `json:"distance_km,omitempty"`
-	TravelTime    int             `json:"travel_time_min,omitempty"`
+	Employee     *model.Employee `json:"employee"`
+	Score        float64         `json:"score"`
+	Feasible     bool            `json:"feasible"`
+	Violations   []string        `json:"violations,omitempty"`
+	MatchReasons []string        `json:"match_reasons,omitempty"`
+	Distance     float64         `json:"distance_km,omitempty"`
+	TravelTime   int             `json:"travel_time_min,omitempty"`
 }
 
 // Dispatch 执行派单
@@ -98,9 +98,9 @@ func (e *DispatchEngine) Dispatch(req *DispatchRequest) *DispatchResponse {
 	if len(feasibleScores) == 0 {
 		// 没有可行解
 		return &DispatchResponse{
-			OrderID: req.Order.OrderNo,
-			Success: false,
-			Reason:  "没有符合条件的员工",
+			OrderID:      req.Order.OrderNo,
+			Success:      false,
+			Reason:       "没有符合条件的员工",
 			Alternatives: limitCandidates(scores, maxResults),
 		}
 	}
@@ -152,17 +152,17 @@ func (e *DispatchEngine) evaluateCandidate(employee *model.Employee, req *Dispat
 
 	// 构建上下文
 	ctx := &constraint.DispatchContext{
-		Customer:        req.Customer,
-		TodayOrders:     req.TodayOrders,
-		EmployeeOrders:  employeeOrders,
-		ServiceHistory:  req.ServiceHistory,
+		Customer:         req.Customer,
+		TodayOrders:      req.TodayOrders,
+		EmployeeOrders:   employeeOrders,
+		ServiceHistory:   req.ServiceHistory,
 		EmployeeLocation: nil, // TODO: 获取员工位置
 	}
 
 	// 评估所有约束
 	for _, c := range e.constraints {
 		valid, penalty, violation := c.Evaluate(req.Order, employee, ctx)
-		
+
 		if !valid {
 			score.Feasible = false
 			score.Violations = append(score.Violations, violation)
@@ -249,7 +249,7 @@ func (e *DispatchEngine) OptimalRoute(orders []*model.ServiceOrder, startLocatio
 
 		// 添加到结果
 		result = append(result, remaining[minIdx])
-		
+
 		// 更新当前位置
 		if remaining[minIdx].Location != nil {
 			currentLoc = *remaining[minIdx].Location
@@ -261,4 +261,3 @@ func (e *DispatchEngine) OptimalRoute(orders []*model.ServiceOrder, startLocatio
 
 	return result
 }
-

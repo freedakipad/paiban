@@ -312,4 +312,3 @@ func (r *EmployeeRepository) scanEmployeeRow(rows *sql.Rows) (*model.Employee, e
 
 	return emp, nil
 }
-

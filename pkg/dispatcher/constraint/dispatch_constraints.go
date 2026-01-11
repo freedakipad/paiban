@@ -18,11 +18,11 @@ type DispatchConstraint interface {
 
 // DispatchContext 派单上下文
 type DispatchContext struct {
-	Customer        *model.Customer
-	TodayOrders     []*model.ServiceOrder   // 今日所有订单
-	EmployeeOrders  []*model.ServiceOrder   // 员工今日已分配订单
-	ServiceHistory  []model.CustomerEmployeeHistory // 客户服务历史
-	EmployeeLocation *model.Location         // 员工当前位置
+	Customer         *model.Customer
+	TodayOrders      []*model.ServiceOrder           // 今日所有订单
+	EmployeeOrders   []*model.ServiceOrder           // 员工今日已分配订单
+	ServiceHistory   []model.CustomerEmployeeHistory // 客户服务历史
+	EmployeeLocation *model.Location                 // 员工当前位置
 }
 
 // BaseDispatchConstraint 基础派出约束
@@ -32,8 +32,8 @@ type BaseDispatchConstraint struct {
 	weight float64
 }
 
-func (b *BaseDispatchConstraint) Name() string   { return b.name }
-func (b *BaseDispatchConstraint) Type() string   { return b.ctype }
+func (b *BaseDispatchConstraint) Name() string    { return b.name }
+func (b *BaseDispatchConstraint) Type() string    { return b.ctype }
 func (b *BaseDispatchConstraint) Weight() float64 { return b.weight }
 
 // =========================================
@@ -148,7 +148,7 @@ func NewMaxOrdersPerDayConstraint(maxOrders int) *MaxOrdersPerDayConstraint {
 
 func (c *MaxOrdersPerDayConstraint) Evaluate(order *model.ServiceOrder, employee *model.Employee, ctx *DispatchContext) (bool, float64, string) {
 	currentCount := len(ctx.EmployeeOrders)
-	
+
 	if currentCount >= c.MaxOrders {
 		return false, c.weight, "员工今日订单数已满"
 	}
@@ -202,7 +202,7 @@ func (c *CustomerPreferenceConstraint) Evaluate(order *model.ServiceOrder, emplo
 	// 检查客户偏好
 	if ctx.Customer.Preferences != nil {
 		prefs := ctx.Customer.Preferences
-		
+
 		// 要求同一服务者
 		if prefs.RequireSameWorker && !isPreferred && len(ctx.ServiceHistory) > 0 {
 			penalty += 30
@@ -228,12 +228,12 @@ func NewCertificationLevelConstraint() *CertificationLevelConstraint {
 			weight: 800,
 		},
 		ServiceCertRequirements: map[string][]string{
-			"nursing":     {"护理员证", "健康证"},
-			"elder_care":  {"护理员证", "健康证"},
-			"baby_care":   {"月嫂证", "健康证"},
-			"cleaning":    {"无犯罪证明"},
-			"cooking":     {"健康证"},
-			"recovery":    {"康复技师证", "健康证"},
+			"nursing":    {"护理员证", "健康证"},
+			"elder_care": {"护理员证", "健康证"},
+			"baby_care":  {"月嫂证", "健康证"},
+			"cleaning":   {"无犯罪证明"},
+			"cooking":    {"健康证"},
+			"recovery":   {"康复技师证", "健康证"},
 		},
 	}
 }
@@ -375,13 +375,12 @@ func calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
 // DefaultDispatchConstraints 返回默认派出约束集合
 func DefaultDispatchConstraints() []DispatchConstraint {
 	return []DispatchConstraint{
-		NewServiceAreaMatchConstraint(20),        // 最大20km
-		NewTravelTimeBufferConstraint(30),        // 最小30分钟缓冲
-		NewMaxOrdersPerDayConstraint(8),          // 每日最多8单
-		NewCustomerPreferenceConstraint(),        // 客户偏好
-		NewCertificationLevelConstraint(),        // 资质检查
-		NewCaregiverContinuityConstraint(),       // 连续性偏好
-		NewSkillMatchConstraint(),                // 技能匹配
+		NewServiceAreaMatchConstraint(20),  // 最大20km
+		NewTravelTimeBufferConstraint(30),  // 最小30分钟缓冲
+		NewMaxOrdersPerDayConstraint(8),    // 每日最多8单
+		NewCustomerPreferenceConstraint(),  // 客户偏好
+		NewCertificationLevelConstraint(),  // 资质检查
+		NewCaregiverContinuityConstraint(), // 连续性偏好
+		NewSkillMatchConstraint(),          // 技能匹配
 	}
 }
-

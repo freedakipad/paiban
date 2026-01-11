@@ -367,4 +367,3 @@ func isWeekend(date string) bool {
 	weekday := t.Weekday()
 	return weekday == time.Saturday || weekday == time.Sunday
 }
-

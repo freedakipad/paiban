@@ -140,4 +140,3 @@ func truncateQuery(query string) string {
 	}
 	return query
 }
-

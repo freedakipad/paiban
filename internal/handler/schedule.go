@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/paiban/paiban/internal/repository"
 	"github.com/paiban/paiban/pkg/errors"
 	"github.com/paiban/paiban/pkg/model"
 	"github.com/paiban/paiban/pkg/scheduler/constraint"
@@ -18,11 +19,26 @@ import (
 
 // ScheduleHandler 排班处理器
 type ScheduleHandler struct {
-	// TODO: 添加repository依赖
+	scheduleRepo *repository.ScheduleRepository
+	employeeRepo *repository.EmployeeRepository
+	shiftRepo    *repository.ShiftRepository
 }
 
 // NewScheduleHandler 创建排班处理器
-func NewScheduleHandler() *ScheduleHandler {
+func NewScheduleHandler(
+	scheduleRepo *repository.ScheduleRepository,
+	employeeRepo *repository.EmployeeRepository,
+	shiftRepo *repository.ShiftRepository,
+) *ScheduleHandler {
+	return &ScheduleHandler{
+		scheduleRepo: scheduleRepo,
+		employeeRepo: employeeRepo,
+		shiftRepo:    shiftRepo,
+	}
+}
+
+// NewScheduleHandlerWithoutDB 创建无数据库依赖的排班处理器（用于测试和简单场景）
+func NewScheduleHandlerWithoutDB() *ScheduleHandler {
 	return &ScheduleHandler{}
 }
 

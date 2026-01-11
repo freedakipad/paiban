@@ -18,9 +18,9 @@ func TestServiceAreaMatchConstraint_Evaluate(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		empLocation  *model.Location
-		expected     bool
+		name        string
+		empLocation *model.Location
+		expected    bool
 	}{
 		{
 			name:        "在范围内",

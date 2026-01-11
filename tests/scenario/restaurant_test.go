@@ -198,4 +198,3 @@ func createAssignment(empID, shiftID uuid.UUID, date, start, end string) *model.
 		Status:     "scheduled",
 	}
 }
-
