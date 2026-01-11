@@ -365,10 +365,12 @@ go build -o bin/paiban cmd/server/main.go
 
 ## 📚 文档
 
-- [设计文档](docs/design.md)
+- [API 使用说明](docs/api-usage.md) ⭐
+- [详细 API 指南](docs/api-guide.md)
 - [部署指南](docs/deploy.md)
+- [设计文档](docs/design.md)
 - [开发测试计划](docs/dev-test-plan.md)
-- [API 文档](api/openapi.yaml)
+- [API 规范](api/openapi.yaml)
 
 ## 🤝 贡献
 
