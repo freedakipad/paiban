@@ -216,16 +216,16 @@ func requestIDMiddleware(next http.Handler) http.Handler {
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		// 获取 Request ID
 		requestID, _ := r.Context().Value("request_id").(string)
-		
+
 		// 包装ResponseWriter以捕获状态码
 		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(rw, r)
-		
+
 		duration := time.Since(start)
-		
+
 		logger.Info().
 			Str("request_id", requestID).
 			Str("method", r.Method).
@@ -233,7 +233,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 			Int("status", rw.statusCode).
 			Dur("duration", duration).
 			Msg("请求处理")
-		
+
 		// 记录Prometheus指标
 		metrics.RecordRequestMetrics(r.Method, r.URL.Path, rw.statusCode, duration)
 	})
@@ -349,23 +349,23 @@ type ConstraintTemplatesResponse struct {
 
 // ConstraintParam 约束参数定义
 type ConstraintParam struct {
-	Name        string `json:"name"`        // 参数名称
-	Type        string `json:"type"`        // 参数类型: int, float, string, bool, array
-	Description string `json:"description"` // 参数描述
-	Default     string `json:"default"`     // 默认值
-	Min         string `json:"min,omitempty"`  // 最小值(可选)
-	Max         string `json:"max,omitempty"`  // 最大值(可选)
+	Name        string `json:"name"`          // 参数名称
+	Type        string `json:"type"`          // 参数类型: int, float, string, bool, array
+	Description string `json:"description"`   // 参数描述
+	Default     string `json:"default"`       // 默认值
+	Min         string `json:"min,omitempty"` // 最小值(可选)
+	Max         string `json:"max,omitempty"` // 最大值(可选)
 }
 
 // ConstraintDefinition 约束定义（约束库中的完整定义）
 type ConstraintDefinition struct {
-	Name        string            `json:"name"`        // 约束唯一标识
+	Name        string            `json:"name"`         // 约束唯一标识
 	DisplayName string            `json:"display_name"` // 显示名称
-	Type        string            `json:"type"`        // hard/soft
-	Category    string            `json:"category"`    // 分类
-	Description string            `json:"description"` // 详细描述
-	Scenarios   []string          `json:"scenarios"`   // 适用场景
-	Params      []ConstraintParam `json:"params"`      // 可配置参数
+	Type        string            `json:"type"`         // hard/soft
+	Category    string            `json:"category"`     // 分类
+	Description string            `json:"description"`  // 详细描述
+	Scenarios   []string          `json:"scenarios"`    // 适用场景
+	Params      []ConstraintParam `json:"params"`       // 可配置参数
 }
 
 // ConstraintLibraryResponse 约束库响应

@@ -209,4 +209,3 @@ func TestVersionEndpoint(t *testing.T) {
 	t.Log("Version endpoint validated")
 	_ = req
 }
-

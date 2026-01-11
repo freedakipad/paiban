@@ -571,7 +571,7 @@ result = client.schedule.generate(
 ### Go
 
 ```go
-import "github.com/paiban/paiban-go"
+import "github.com/freedakipad/paiban/pkg/client"  // 示例，需根据实际情况调整
 
 client := paiban.NewClient("pk_xxx")
 

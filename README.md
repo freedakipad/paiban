@@ -33,71 +33,35 @@
 - Go 1.23+
 - PostgreSQL 15+ (可选)
 - Redis 6+ (可选)
-- Docker & Docker Compose (可选)
 
-### 本地运行
+### 快速启动
 
 ```bash
-# 克隆项目（请替换为实际仓库地址）
-git clone <your-repo-url>
+# 克隆项目
+git clone https://github.com/freedakipad/paiban.git
 cd paiban
 
-# 安装依赖
-go mod download
+# 一键启动
+./scripts/quick-start.sh
 
-# 编译
+# 或手动启动
 go build -o bin/paiban cmd/server/main.go
-
-# 运行服务 (默认端口 7012)
 ./bin/paiban
 ```
 
-### 使用 Docker
+### 验证服务
 
 ```bash
-# 启动所有服务（PostgreSQL + Redis + PaiBan）
-docker compose up -d
+# 健康检查
+curl http://localhost:7012/health
 
-# 查看日志
-docker compose logs -f paiban
-
-# 停止服务
-docker compose down
+# API 信息
+curl http://localhost:7012/api/v1/
 ```
 
-### Docker 部署详解
+服务默认端口：`7012`
 
-项目包含完整的 Docker 配置，支持多种部署方式：
-
-| 部署方式 | 命令 | 说明 |
-|----------|------|------|
-| 完整服务 | `docker compose up -d` | 后端 + 数据库 + 缓存 |
-| 仅依赖 | `docker compose up -d postgres redis` | 本地开发时启动 |
-| 包含管理界面 | `docker compose --profile admin up -d` | 含 pgAdmin + RedisInsight |
-
-**服务端口：**
-
-| 服务 | 端口 | 描述 |
-|------|------|------|
-| PaiBan API | 7012 | 排班引擎服务 |
-| PostgreSQL | 5432 | 数据库 |
-| Redis | 6379 | 缓存 |
-| pgAdmin | 5050 | 数据库管理（可选） |
-| RedisInsight | 8001 | Redis 管理（可选） |
-
-**构建生产镜像：**
-
-```bash
-# 构建镜像
-docker build -f deployments/Dockerfile \
-  --build-arg VERSION=v1.0.0 \
-  -t paiban/paiban:v1.0.0 .
-
-# 推送到镜像仓库
-docker push paiban/paiban:v1.0.0
-```
-
-📖 详细部署指南请参考：[Docker 部署文档](docs/docker-deploy.md)
+📖 详细部署指南请参考：[部署文档](docs/deploy.md)
 
 ### 启动前端控制台
 
@@ -224,7 +188,6 @@ paiban/
 ├── cmd/
 │   └── server/            # 主程序入口
 ├── configs/               # 配置文件
-├── deployments/           # Docker 部署文件
 ├── docs/                  # 文档
 │   ├── design.md          # 设计文档
 │   └── dev-test-plan.md   # 开发测试计划
@@ -403,8 +366,8 @@ go build -o bin/paiban cmd/server/main.go
 ## 📚 文档
 
 - [设计文档](docs/design.md)
+- [部署指南](docs/deploy.md)
 - [开发测试计划](docs/dev-test-plan.md)
-- [Docker 部署指南](docs/docker-deploy.md)
 - [API 文档](api/openapi.yaml)
 
 ## 🤝 贡献

@@ -15,15 +15,15 @@ import (
 
 // OptimizationConfig 优化配置
 type OptimizationConfig struct {
-	MaxIterations    int           `json:"max_iterations"`     // 最大迭代次数
-	MaxTime          time.Duration `json:"max_time"`           // 最大运行时间
-	InitialTemp      float64       `json:"initial_temp"`       // 模拟退火初始温度
-	CoolingRate      float64       `json:"cooling_rate"`       // 冷却速率
-	TabuSize         int           `json:"tabu_size"`          // 禁忌表大小
-	NeighborhoodSize int           `json:"neighborhood_size"`  // 邻域大小
-	ParallelWorkers  int           `json:"parallel_workers"`   // 并行工作数
-	StopOnPlateau    bool          `json:"stop_on_plateau"`    // 平台期停止
-	PlateauThreshold int           `json:"plateau_threshold"`  // 平台期阈值（无改进迭代次数）
+	MaxIterations    int           `json:"max_iterations"`    // 最大迭代次数
+	MaxTime          time.Duration `json:"max_time"`          // 最大运行时间
+	InitialTemp      float64       `json:"initial_temp"`      // 模拟退火初始温度
+	CoolingRate      float64       `json:"cooling_rate"`      // 冷却速率
+	TabuSize         int           `json:"tabu_size"`         // 禁忌表大小
+	NeighborhoodSize int           `json:"neighborhood_size"` // 邻域大小
+	ParallelWorkers  int           `json:"parallel_workers"`  // 并行工作数
+	StopOnPlateau    bool          `json:"stop_on_plateau"`   // 平台期停止
+	PlateauThreshold int           `json:"plateau_threshold"` // 平台期阈值（无改进迭代次数）
 }
 
 // DefaultOptConfig 默认优化配置
@@ -72,12 +72,12 @@ type ConstraintEvaluator interface {
 
 // LocalSearchOptimizer 局部搜索优化器
 type LocalSearchOptimizer struct {
-	config     *OptimizationConfig
-	evaluator  ConstraintEvaluator
-	neighbors  *NeighborhoodGenerator
-	tabuList   *TabuList
-	rng        *rand.Rand
-	mu         sync.Mutex
+	config    *OptimizationConfig
+	evaluator ConstraintEvaluator
+	neighbors *NeighborhoodGenerator
+	tabuList  *TabuList
+	rng       *rand.Rand
+	mu        sync.Mutex
 }
 
 // NewLocalSearchOptimizer 创建局部搜索优化器
@@ -103,18 +103,18 @@ type OptimizeContext struct {
 // Optimize 优化排班方案
 func (o *LocalSearchOptimizer) Optimize(ctx context.Context, initial *Solution, employees []*model.Employee, shifts []*model.Shift) (*Solution, error) {
 	start := time.Now()
-	
+
 	current := initial.Clone()
 	best := current.Clone()
-	
+
 	temperature := o.config.InitialTemp
 	noImprovementCount := 0
-	
+
 	optCtx := &OptimizeContext{
 		Employees: employees,
 		Shifts:    shifts,
 	}
-	
+
 	log.Printf("开始局部搜索优化: max_iterations=%d, max_time=%s, initial_score=%.2f",
 		o.config.MaxIterations, o.config.MaxTime, current.Score)
 
@@ -126,7 +126,7 @@ func (o *LocalSearchOptimizer) Optimize(ctx context.Context, initial *Solution, 
 			return best, ctx.Err()
 		default:
 		}
-		
+
 		if time.Since(start) > o.config.MaxTime {
 			log.Println("达到最大运行时间")
 			break
@@ -198,14 +198,14 @@ func (o *LocalSearchOptimizer) Optimize(ctx context.Context, initial *Solution, 
 // generateNeighbors 生成邻域解
 func (o *LocalSearchOptimizer) generateNeighbors(current *Solution, employees []*model.Employee, shifts []*model.Shift) []*Solution {
 	neighbors := make([]*Solution, 0, o.config.NeighborhoodSize)
-	
+
 	for i := 0; i < o.config.NeighborhoodSize; i++ {
 		neighbor := o.neighbors.GenerateNeighbor(current, employees, shifts)
 		if neighbor != nil {
 			neighbors = append(neighbors, neighbor)
 		}
 	}
-	
+
 	return neighbors
 }
 
@@ -276,10 +276,10 @@ func boltzmannProbability(delta, temperature float64) float64 {
 
 // TabuList 禁忌表（使用uint64哈希作为键提高性能）
 type TabuList struct {
-	items    map[uint64]struct{}
-	order    []uint64
-	maxSize  int
-	mu       sync.RWMutex
+	items   map[uint64]struct{}
+	order   []uint64
+	maxSize int
+	mu      sync.RWMutex
 }
 
 // NewTabuList 创建禁忌表
@@ -326,4 +326,3 @@ func (t *TabuList) Clear() {
 	t.items = make(map[uint64]struct{})
 	t.order = t.order[:0]
 }
-
