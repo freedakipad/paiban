@@ -190,6 +190,7 @@ func (c *MaxConsecutiveDaysConstraint) Evaluate(ctx *constraint.Context) (bool, 
 // EvaluateAssignment 评估单个分配
 func (c *MaxConsecutiveDaysConstraint) EvaluateAssignment(ctx *constraint.Context, a *model.Assignment) (bool, int) {
 	// 计算加上新分配后的连续天数
+	// GetEmployeeConsecutiveDays 返回前后连续天数之和，+1 是当前日期
 	consecutiveDays := ctx.GetEmployeeConsecutiveDays(a.EmployeeID, a.Date) + 1
 
 	if consecutiveDays > c.maxDays {
@@ -217,4 +218,87 @@ func isConsecutiveDate(date1, date2 string) bool {
 	// 计算日期差值
 	diff := t2.Sub(t1)
 	return diff == 24*time.Hour
+}
+
+// MaxShiftsPerDayConstraint 每天最多班次数约束（硬约束）
+// 防止同一员工在同一天被分配多个班次
+type MaxShiftsPerDayConstraint struct {
+	*BaseConstraint
+	maxShifts int // 每天最多班次数，默认为1
+}
+
+// NewMaxShiftsPerDayConstraint 创建每天最多班次数约束
+func NewMaxShiftsPerDayConstraint(maxShifts int) *MaxShiftsPerDayConstraint {
+	if maxShifts <= 0 {
+		maxShifts = 1 // 默认每天最多1个班次
+	}
+	return &MaxShiftsPerDayConstraint{
+		BaseConstraint: NewBaseConstraint(
+			"每天最多班次数",
+			constraint.TypeMaxShiftsPerDay,
+			constraint.CategoryHard,
+			100, // 硬约束权重
+		),
+		maxShifts: maxShifts,
+	}
+}
+
+// Evaluate 评估整个排班
+func (c *MaxShiftsPerDayConstraint) Evaluate(ctx *constraint.Context) (bool, int, []constraint.ViolationDetail) {
+	var violations []constraint.ViolationDetail
+	totalPenalty := 0
+	isValid := true
+
+	for _, emp := range ctx.Employees {
+		assignments := ctx.GetEmployeeAssignments(emp.ID)
+		if len(assignments) == 0 {
+			continue
+		}
+
+		// 按日期统计班次数
+		dateShiftCount := make(map[string]int)
+		for _, a := range assignments {
+			dateShiftCount[a.Date]++
+		}
+
+		// 检查是否超过每天最大班次数
+		for date, count := range dateShiftCount {
+			if count > c.maxShifts {
+				isValid = false
+				penalty := c.Weight() * (count - c.maxShifts)
+				totalPenalty += penalty
+				violations = append(violations, constraint.ViolationDetail{
+					ConstraintType: c.Type(),
+					ConstraintName: c.Name(),
+					Message: fmt.Sprintf("员工 %s 在 %s 被分配了 %d 个班次，超过限制 %d",
+						emp.Name, date, count, c.maxShifts,
+					),
+					Severity: "error",
+					Penalty:  penalty,
+				})
+			}
+		}
+	}
+
+	return isValid, totalPenalty, violations
+}
+
+// EvaluateAssignment 评估单个分配
+func (c *MaxShiftsPerDayConstraint) EvaluateAssignment(ctx *constraint.Context, a *model.Assignment) (bool, int) {
+	// 获取该员工在该日期已有的班次数
+	assignments := ctx.GetEmployeeAssignments(a.EmployeeID)
+	count := 0
+	for _, existing := range assignments {
+		if existing.Date == a.Date {
+			count++
+		}
+	}
+
+	// 加上当前分配后的班次数
+	if count+1 > c.maxShifts {
+		penalty := c.Weight() * (count + 1 - c.maxShifts)
+		return false, penalty
+	}
+
+	return true, 0
 }

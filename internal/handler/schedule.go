@@ -105,17 +105,31 @@ type GenerateResponse struct {
 	Statistics  *solver.Statistics      `json:"statistics"`
 	Constraints *ConstraintResultOutput `json:"constraint_result"`
 	Duration    string                  `json:"duration"`
+	Suggestions []StaffingSuggestion    `json:"suggestions,omitempty"` // 补员建议
+}
+
+// StaffingSuggestion 补员建议
+type StaffingSuggestion struct {
+	Type       string `json:"type"`        // shortage/overwork/imbalance
+	Position   string `json:"position"`    // 岗位
+	Date       string `json:"date"`        // 日期（可选）
+	CurrentNum int    `json:"current_num"` // 当前人数
+	SuggestNum int    `json:"suggest_num"` // 建议人数
+	Reason     string `json:"reason"`      // 原因说明
 }
 
 // UnfilledRequirement 未满足的需求
 type UnfilledRequirement struct {
-	ShiftID  string `json:"shift_id"`
-	Date     string `json:"date"`
-	Position string `json:"position,omitempty"`
-	Required int    `json:"required"`
-	Assigned int    `json:"assigned"`
-	Shortage int    `json:"shortage"`
-	Reason   string `json:"reason,omitempty"`
+	ShiftID   string `json:"shift_id"`
+	ShiftName string `json:"shift_name,omitempty"`
+	Date      string `json:"date"`
+	Position  string `json:"position,omitempty"`
+	Required  int    `json:"required"`
+	Assigned  int    `json:"assigned"`
+	Shortage  int    `json:"shortage"`
+	Reason    string `json:"reason,omitempty"`
+	StoreID   string `json:"store_id,omitempty"`
+	StoreName string `json:"store_name,omitempty"`
 }
 
 // AssignmentOutput 排班输出
@@ -130,6 +144,19 @@ type AssignmentOutput struct {
 	EndTime      string  `json:"end_time"`
 	Position     string  `json:"position,omitempty"`
 	Hours        float64 `json:"hours"`
+	// 综合评分（0-100）
+	Score       float64          `json:"score"`
+	ScoreDetail *AssignmentScore `json:"score_detail,omitempty"`
+}
+
+// AssignmentScore 排班分配评分明细
+type AssignmentScore struct {
+	SkillMatch      float64  `json:"skill_match"`       // 技能匹配度 (0-100)
+	Distance        float64  `json:"distance"`          // 距离评分 (0-100)
+	Preference      float64  `json:"preference"`        // 偏好满足度 (0-100)
+	WorkloadBalance float64  `json:"workload_balance"`  // 工时均衡 (0-100)
+	Continuity      float64  `json:"continuity"`        // 连续性评分 (0-100)
+	Reasons         []string `json:"reasons,omitempty"` // 评分说明
 }
 
 // ConstraintResultOutput 约束结果输出
@@ -171,6 +198,7 @@ func (h *ScheduleHandler) Generate(w http.ResponseWriter, r *http.Request) {
 	// 设置员工
 	employees := make([]*model.Employee, 0, len(req.Employees))
 	empNameMap := make(map[uuid.UUID]string)
+	empMap := make(map[uuid.UUID]*model.Employee)
 	for _, e := range req.Employees {
 		id, err := uuid.Parse(e.ID)
 		if err != nil {
@@ -189,6 +217,7 @@ func (h *ScheduleHandler) Generate(w http.ResponseWriter, r *http.Request) {
 		}
 		employees = append(employees, emp)
 		empNameMap[id] = e.Name
+		empMap[id] = emp
 	}
 	ctx.SetEmployees(employees)
 
@@ -218,6 +247,7 @@ func (h *ScheduleHandler) Generate(w http.ResponseWriter, r *http.Request) {
 
 	// 设置需求
 	requirements := make([]*model.ShiftRequirement, 0, len(req.Requirements))
+	reqMap := make(map[string]*model.ShiftRequirement) // key: shiftID-date-position
 	for _, reqItem := range req.Requirements {
 		shiftID, err := uuid.Parse(reqItem.ShiftID)
 		if err != nil {
@@ -242,6 +272,9 @@ func (h *ScheduleHandler) Generate(w http.ResponseWriter, r *http.Request) {
 			requirement.Priority = 5
 		}
 		requirements = append(requirements, requirement)
+		// 添加到映射
+		key := fmt.Sprintf("%s-%s-%s", shiftID.String(), reqItem.Date, reqItem.Position)
+		reqMap[key] = requirement
 	}
 	ctx.Requirements = requirements
 
@@ -276,8 +309,34 @@ func (h *ScheduleHandler) Generate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 构建响应
+	// 统计员工工时用于工时均衡评分
+	empHours := make(map[uuid.UUID]float64)
+	for _, a := range result.Assignments {
+		empHours[a.EmployeeID] += a.WorkingHours()
+	}
+	avgHours := 0.0
+	if len(empHours) > 0 {
+		total := 0.0
+		for _, h := range empHours {
+			total += h
+		}
+		avgHours = total / float64(len(empHours))
+	}
+
+	// 统计员工连续工作天数
+	empDays := make(map[uuid.UUID]map[string]bool)
+	for _, a := range result.Assignments {
+		if empDays[a.EmployeeID] == nil {
+			empDays[a.EmployeeID] = make(map[string]bool)
+		}
+		empDays[a.EmployeeID][a.Date] = true
+	}
+
 	assignments := make([]AssignmentOutput, len(result.Assignments))
 	for i, a := range result.Assignments {
+		// 计算综合评分
+		score, detail := calculateAssignmentScore(a, empMap[a.EmployeeID], reqMap, empHours[a.EmployeeID], avgHours, len(empDays[a.EmployeeID]))
+
 		assignments[i] = AssignmentOutput{
 			ID:           a.ID.String(),
 			EmployeeID:   a.EmployeeID.String(),
@@ -289,12 +348,17 @@ func (h *ScheduleHandler) Generate(w http.ResponseWriter, r *http.Request) {
 			EndTime:      a.EndTime.Format("15:04"),
 			Position:     a.Position,
 			Hours:        a.WorkingHours(),
+			Score:        score,
+			ScoreDetail:  detail,
 		}
 	}
 
 	// 计算未满足的需求
 	unfilled := calculateUnfilledRequirements(requirements, result.Assignments, shiftNameMap)
 	isPartial := len(unfilled) > 0 && len(result.Assignments) > 0
+
+	// 生成补员建议
+	suggestions := generateStaffingSuggestions(unfilled, req.Employees, result.ConstraintResult)
 
 	resp := GenerateResponse{
 		Success:     result.Success,
@@ -305,6 +369,7 @@ func (h *ScheduleHandler) Generate(w http.ResponseWriter, r *http.Request) {
 		Unfilled:    unfilled,
 		Statistics:  result.Statistics,
 		Duration:    result.Duration.String(),
+		Suggestions: suggestions,
 	}
 
 	// 如果是部分解，更新消息
@@ -516,17 +581,197 @@ func calculateUnfilledRequirements(
 				reason = "无可用员工"
 			}
 
+			shiftName := shiftNameMap[req.ShiftID]
+
 			unfilled = append(unfilled, UnfilledRequirement{
-				ShiftID:  req.ShiftID.String(),
-				Date:     req.Date,
-				Position: req.Position,
-				Required: req.MinEmployees,
-				Assigned: assigned,
-				Shortage: shortage,
-				Reason:   reason,
+				ShiftID:   req.ShiftID.String(),
+				ShiftName: shiftName,
+				Date:      req.Date,
+				Position:  req.Position,
+				Required:  req.MinEmployees,
+				Assigned:  assigned,
+				Shortage:  shortage,
+				Reason:    reason,
 			})
 		}
 	}
 
 	return unfilled
+}
+
+// calculateAssignmentScore 计算单个排班分配的综合评分
+func calculateAssignmentScore(
+	assignment *model.Assignment,
+	employee *model.Employee,
+	reqMap map[string]*model.ShiftRequirement,
+	empTotalHours float64,
+	avgHours float64,
+	empWorkDays int,
+) (float64, *AssignmentScore) {
+	detail := &AssignmentScore{
+		SkillMatch:      100,
+		Distance:        100,
+		Preference:      100,
+		WorkloadBalance: 100,
+		Continuity:      100,
+		Reasons:         []string{},
+	}
+
+	if employee == nil {
+		return 50, detail
+	}
+
+	// 1. 技能匹配评分 (30%)
+	key := fmt.Sprintf("%s-%s-%s", assignment.ShiftID.String(), assignment.Date, assignment.Position)
+	if req, ok := reqMap[key]; ok && len(req.Skills) > 0 {
+		matchedSkills := 0
+		for _, reqSkill := range req.Skills {
+			for _, empSkill := range employee.Skills {
+				if empSkill == reqSkill {
+					matchedSkills++
+					break
+				}
+			}
+		}
+		if len(req.Skills) > 0 {
+			detail.SkillMatch = float64(matchedSkills) / float64(len(req.Skills)) * 100
+			if detail.SkillMatch >= 100 {
+				detail.Reasons = append(detail.Reasons, "技能完全匹配")
+			} else if detail.SkillMatch >= 50 {
+				detail.Reasons = append(detail.Reasons, "技能部分匹配")
+			} else {
+				detail.Reasons = append(detail.Reasons, "技能匹配度低")
+			}
+		}
+	} else {
+		// 岗位匹配检查
+		if employee.Position == assignment.Position {
+			detail.SkillMatch = 100
+			detail.Reasons = append(detail.Reasons, "岗位匹配")
+		} else if assignment.Position != "" && employee.Position != "" {
+			detail.SkillMatch = 60
+			detail.Reasons = append(detail.Reasons, "岗位不完全匹配")
+		}
+	}
+
+	// 2. 距离评分 (20%) - 如果有位置信息
+	// 默认给满分，因为没有实时计算距离
+	detail.Distance = 100
+	if employee.HomeLocation != nil {
+		detail.Reasons = append(detail.Reasons, "有住址信息")
+	}
+
+	// 3. 员工偏好评分 (20%)
+	if employee.Preferences != nil {
+		// 检查避免班次
+		shiftCode := "" // 需要从 shiftNameMap 获取，简化处理
+		for _, avoid := range employee.Preferences.AvoidShifts {
+			if avoid == shiftCode || avoid == assignment.ShiftID.String() {
+				detail.Preference = 30
+				detail.Reasons = append(detail.Reasons, "员工避免此班次")
+				break
+			}
+		}
+		// 检查偏好班次
+		for _, prefer := range employee.Preferences.PreferredShifts {
+			if prefer == shiftCode || prefer == assignment.ShiftID.String() {
+				detail.Preference = 100
+				detail.Reasons = append(detail.Reasons, "符合员工偏好")
+				break
+			}
+		}
+	}
+
+	// 4. 工时均衡评分 (15%)
+	if avgHours > 0 {
+		deviation := (empTotalHours - avgHours) / avgHours * 100
+		if deviation > 20 {
+			detail.WorkloadBalance = 60
+			detail.Reasons = append(detail.Reasons, "工时偏高")
+		} else if deviation < -20 {
+			detail.WorkloadBalance = 80
+			detail.Reasons = append(detail.Reasons, "工时偏低")
+		} else {
+			detail.WorkloadBalance = 100
+			detail.Reasons = append(detail.Reasons, "工时均衡")
+		}
+	}
+
+	// 5. 连续性评分 (15%)
+	if empWorkDays >= 7 {
+		detail.Continuity = 40
+		detail.Reasons = append(detail.Reasons, "连续工作天数过多")
+	} else if empWorkDays >= 6 {
+		detail.Continuity = 70
+		detail.Reasons = append(detail.Reasons, "接近连续工作上限")
+	} else {
+		detail.Continuity = 100
+	}
+
+	// 计算综合评分 (加权平均)
+	score := detail.SkillMatch*0.30 +
+		detail.Distance*0.20 +
+		detail.Preference*0.20 +
+		detail.WorkloadBalance*0.15 +
+		detail.Continuity*0.15
+
+	return score, detail
+}
+
+// generateStaffingSuggestions 生成补员建议
+func generateStaffingSuggestions(unfilled []UnfilledRequirement, employees []EmployeeInput, constraintResult *constraint.Result) []StaffingSuggestion {
+	var suggestions []StaffingSuggestion
+
+	if len(unfilled) == 0 {
+		return suggestions
+	}
+
+	// 按岗位统计缺口
+	positionShortage := make(map[string]int)
+	positionDates := make(map[string][]string)
+	for _, u := range unfilled {
+		positionShortage[u.Position] += u.Shortage
+		positionDates[u.Position] = append(positionDates[u.Position], u.Date)
+	}
+
+	// 统计当前各岗位员工数
+	positionCount := make(map[string]int)
+	for _, emp := range employees {
+		positionCount[emp.Position]++
+	}
+
+	// 生成补员建议
+	for position, shortage := range positionShortage {
+		currentNum := positionCount[position]
+		// 建议增加的人数 = 缺口总数 / 排班天数 * 1.2（预留20%余量）
+		uniqueDates := len(positionDates[position])
+		avgShortagePerDay := float64(shortage) / float64(uniqueDates)
+		suggestAdd := int(avgShortagePerDay*1.2) + 1
+
+		suggestions = append(suggestions, StaffingSuggestion{
+			Type:       "shortage",
+			Position:   position,
+			CurrentNum: currentNum,
+			SuggestNum: currentNum + suggestAdd,
+			Reason:     fmt.Sprintf("%s岗位在%d天内共缺%d个班次，建议增加%d人以满足轮换需求", position, uniqueDates, shortage, suggestAdd),
+		})
+	}
+
+	// 检查是否有连续工作超限的违规
+	if constraintResult != nil {
+		overworkCount := 0
+		for _, v := range constraintResult.HardViolations {
+			if v.ConstraintType == constraint.TypeMaxConsecutiveDays {
+				overworkCount++
+			}
+		}
+		if overworkCount > 0 {
+			suggestions = append(suggestions, StaffingSuggestion{
+				Type:   "overwork",
+				Reason: fmt.Sprintf("有%d名员工连续工作天数超限，建议增加人手以实现轮换休息", overworkCount),
+			})
+		}
+	}
+
+	return suggestions
 }

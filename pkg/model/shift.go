@@ -35,6 +35,10 @@ type ShiftRequirement struct {
 	OptEmployees int       `json:"opt_employees" db:"opt_employees"` // 最优人数
 	Skills       []string  `json:"skills,omitempty" db:"skills"`
 	Priority     int       `json:"priority" db:"priority"` // 优先级 1-10
+
+	// 工作地点（用于计算员工通勤距离）
+	WorkLocation *Location `json:"work_location,omitempty" db:"work_location"`
+	Note         string    `json:"note,omitempty" db:"note"` // 备注说明
 }
 
 // Assignment 排班分配

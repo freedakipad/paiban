@@ -156,7 +156,7 @@ func (e *DispatchEngine) evaluateCandidate(employee *model.Employee, req *Dispat
 		TodayOrders:      req.TodayOrders,
 		EmployeeOrders:   employeeOrders,
 		ServiceHistory:   req.ServiceHistory,
-		EmployeeLocation: nil, // TODO: 获取员工位置
+		EmployeeLocation: employee.HomeLocation, // 使用员工的家庭位置
 	}
 
 	// 评估所有约束

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>餐饮门店智能排班系统</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🍜%3C/text%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        // 自动版本控制 - 使用时间戳避免缓存问题
+        window.APP_VERSION = Date.now();
+        // 动态加载CSS
+        (function() {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'css/styles.css?v=' + window.APP_VERSION;
+            document.head.appendChild(link);
+        })();
+    </script>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <header class="header">
+        <div class="header-brand">
+            <span class="brand-icon">🍜</span>
+            <h1>餐饮门店智能排班</h1>
+        </div>
+        <nav class="header-nav">
+            <button class="nav-btn active" data-tab="schedule">
+                <span class="nav-icon">📅</span>
+                <span>排班表</span>
+            </button>
+            <button class="nav-btn" data-tab="employees">
+                <span class="nav-icon">👥</span>
+                <span>员工</span>
+            </button>
+            <button class="nav-btn" data-tab="shifts">
+                <span class="nav-icon">⏰</span>
+                <span>班次</span>
+            </button>
+            <button class="nav-btn" data-tab="settings">
+                <span class="nav-icon">⚙️</span>
+                <span>设置</span>
+            </button>
+        </nav>
+        <div class="header-actions">
+            <!-- 门店选择器 -->
+            <div class="store-selector" id="storeSelector">
+                <button class="store-selector-btn" id="storeSelectorBtn">
+                    <span class="store-icon">🏪</span>
+                    <span class="store-name" id="currentStoreName">总店</span>
+                    <span class="store-code" id="currentStoreCode">(HQ)</span>
+                    <span class="dropdown-arrow">▼</span>
+                </button>
+                <div class="store-dropdown" id="storeDropdown">
+                    <div class="store-dropdown-header">
+                        <span>🏢 选择门店</span>
+                        <button class="btn-manage-stores" onclick="showStoreManagement()">管理</button>
+                    </div>
+                    <div class="store-list" id="storeList">
+                        <!-- 动态生成门店列表 -->
+                    </div>
+                    <div class="store-dropdown-footer">
+                        <div class="chain-stats" id="chainStats">
+                            <span>3 家门店</span>
+                            <span>•</span>
+                            <span>14 名员工</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-generate" id="btnGenerate">
+                <span>✨ 智能排班</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <!-- 排班表视图 -->
+        <section id="tab-schedule" class="tab-content active">
+            <div class="schedule-toolbar">
+                <div class="week-nav">
+                    <select class="period-select" id="periodSelect" title="排班周期">
+                        <option value="7">1周</option>
+                        <option value="14">2周</option>
+                        <option value="month">月度</option>
+                    </select>
+                    <button class="btn-icon" id="prevWeek">‹</button>
+                    <span class="week-label" id="weekLabel">2026年1月第2周</span>
+                    <button class="btn-icon" id="nextWeek">›</button>
+                    <button class="btn-text" id="todayBtn">今天</button>
+                    <span class="week-status" id="weekStatus">
+                        <span class="status-icon">📝</span>
+                        <span class="status-text">草稿</span>
+                    </span>
+                    <!-- 门店筛选（全部门店模式下显示） -->
+                    <select class="store-filter-select" id="scheduleStoreFilter" style="display: none;" title="按门店查看">
+                        <option value="all">全部门店</option>
+                    </select>
+                </div>
+                <div class="schedule-actions">
+                    <button class="btn-action save" id="btnSave" title="保存排班">
+                        <span>💾</span> 保存
+                    </button>
+                    <button class="btn-action publish" id="btnPublish" title="发布给员工">
+                        <span>📢</span> 发布
+                    </button>
+                    <button class="btn-action archive" id="btnArchive" title="归档存档">
+                        <span>📁</span> 归档
+                    </button>
+                    <button class="btn-action unlock" id="btnUnlock" title="解锁编辑" style="display:none;">
+                        <span>🔓</span> 解锁
+                    </button>
+                </div>
+                <div class="schedule-stats" id="scheduleStats">
+                    <span class="stat-item">
+                        <span class="stat-label">总班次</span>
+                        <span class="stat-value" id="statTotal">0</span>
+                    </span>
+                    <span class="stat-item">
+                        <span class="stat-label">满足率</span>
+                        <span class="stat-value" id="statRate">--%</span>
+                    </span>
+                    <span class="stat-item">
+                        <span class="stat-label">平均评分</span>
+                        <span class="stat-value" id="statScore">--</span>
+                    </span>
+                </div>
+                <div class="btn-group"><button class="check-btn" onclick="checkScheduleGaps()">🔍 测算</button><button class="report-toggle-btn" onclick="toggleReportPanel()">📊 排班报告</button><button class="history-toggle-btn" onclick="toggleHistoryPanel()">📜 操作历史<span class="history-badge" id="historyCount">0</span></button></div>
+            </div>
+            
+            <div class="schedule-container">
+                <div class="schedule-grid" id="scheduleGrid">
+                    <!-- 动态生成排班表格 -->
+                </div>
+            </div>
+
+            <!-- 未满足需求提示 -->
+            <div class="unfilled-panel" id="unfilledPanel" style="display: none;">
+                <div class="panel-header">
+                    <span class="panel-title">📊 排班分析报告</span>
+                    <button class="btn-close" id="closeUnfilled">×</button>
+                </div>
+                <div class="panel-body">
+                    <!-- 问题分析 -->
+                    <div class="analysis-section" id="analysisSection">
+                        <div class="analysis-header">📊 问题分析</div>
+                        <div class="analysis-content" id="analysisContent"></div>
+                    </div>
+                    <!-- 解决方案 -->
+                    <div class="solution-section" id="solutionSection">
+                        <div class="solution-header">💡 解决方案</div>
+                        <div class="solution-content" id="solutionContent"></div>
+                    </div>
+                    <!-- 未满足明细 / 排班状态 -->
+                    <div class="unfilled-details" id="unfilledSection">
+                        <div class="section-title">📋 未满足明细</div>
+                        <div id="unfilledList"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 员工管理视图 -->
+        <section id="tab-employees" class="tab-content">
+            <div class="section-header">
+                <h2>👥 员工管理</h2>
+                <button class="btn-primary" id="addEmployee">
+                    <span>+ 添加员工</span>
+                </button>
+            </div>
+            
+            <div class="filter-bar">
+                <div class="filter-group month-nav">
+                    <button class="btn-nav" id="prevMonth" title="上个月">◀</button>
+                    <span id="calendarMonthDisplay">2026年1月</span>
+                    <button class="btn-nav" id="nextMonth" title="下个月">▶</button>
+                </div>
+                <div class="filter-group">
+                    <label>岗位筛选:</label>
+                    <select id="filterPosition">
+                        <option value="">全部岗位</option>
+                        <option value="服务员">服务员</option>
+                        <option value="厨师">厨师</option>
+                        <option value="收银员">收银员</option>
+                        <option value="店长">店长</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>状态:</label>
+                    <select id="filterStatus">
+                        <option value="">全部</option>
+                        <option value="active">在职</option>
+                        <option value="inactive">离职</option>
+                    </select>
+                </div>
+                <div class="search-box">
+                    <input type="text" id="searchEmployee" placeholder="🔍 搜索员工姓名...">
+                </div>
+            </div>
+
+            <div class="employee-grid" id="employeeGrid">
+                <!-- 动态生成员工卡片 -->
+            </div>
+        </section>
+
+        <!-- 班次设置视图 -->
+        <section id="tab-shifts" class="tab-content">
+            <div class="section-header">
+                <h2>⏰ 班次设置</h2>
+                <button class="btn-primary" id="addShift">
+                    <span>+ 添加班次</span>
+                </button>
+            </div>
+            
+            <div class="shifts-container">
+                <div class="shift-list" id="shiftList">
+                    <!-- 动态生成班次卡片 -->
+                </div>
+                
+                <div class="requirements-section">
+                    <h3>📋 每日人员需求</h3>
+                    <div class="requirements-grid" id="requirementsGrid">
+                        <!-- 动态生成需求配置 -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 设置视图 -->
+        <section id="tab-settings" class="tab-content">
+            <div class="section-header">
+                <h2>⚙️ 排班设置</h2>
+            </div>
+            
+            <div class="settings-container">
+                <div class="settings-group">
+                    <h3>🏪 门店信息</h3>
+                    <div class="form-row">
+                        <label>门店名称</label>
+                        <input type="text" id="storeName" value="示例餐厅" placeholder="输入门店名称">
+                    </div>
+                    <div class="form-row">
+                        <label>营业时间</label>
+                        <div class="time-range">
+                            <input type="time" id="openTime" value="09:00">
+                            <span>至</span>
+                            <input type="time" id="closeTime" value="22:00">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <h3>📏 排班规则</h3>
+                    <div class="form-row">
+                        <label>工时计算模式</label>
+                        <select id="hoursMode">
+                            <option value="weekly">按周计算（每周限制）</option>
+                            <option value="period">按周期计算（月度自由分配）</option>
+                        </select>
+                    </div>
+                    <div class="form-row" id="weeklyHoursRow">
+                        <label>最大周工时</label>
+                        <input type="number" id="maxWeeklyHours" value="44" min="1" max="60">
+                        <span class="form-hint">小时</span>
+                    </div>
+                    <div class="form-row" id="periodHoursRow" style="display:none;">
+                        <label>月度最大工时</label>
+                        <input type="number" id="maxPeriodHours" value="176" min="40" max="300">
+                        <span class="form-hint">小时（建议：周工时×4）</span>
+                    </div>
+                    <div class="form-row">
+                        <label>班次间最小休息</label>
+                        <input type="number" id="minRestHours" value="8" min="0" max="24">
+                        <span class="form-hint">小时（建议8-11小时）</span>
+                    </div>
+                    <div class="form-row">
+                        <label>最大连续工作天数</label>
+                        <input type="number" id="maxConsecutiveDays" value="6" min="1" max="14">
+                        <span class="form-hint">天</span>
+                    </div>
+                    <div class="form-row">
+                        <label>每周最少休息</label>
+                        <input type="number" id="minRestDays" value="1" min="0" max="3">
+                        <span class="form-hint">天</span>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <h3>🔌 API 配置</h3>
+                    <div class="form-row">
+                        <label>排班引擎地址</label>
+                        <input type="text" id="apiEndpoint" value="http://localhost:7012" placeholder="http://localhost:7012">
+                    </div>
+                    <div class="form-row">
+                        <label>计算超时</label>
+                        <input type="number" id="timeout" value="30" min="5" max="120">
+                        <span class="form-hint">秒</span>
+                    </div>
+                    <div class="form-row">
+                        <button class="btn-secondary" id="testConnection">🔗 测试连接</button>
+                        <span class="connection-status" id="connectionStatus"></span>
+                    </div>
+                </div>
+
+                <div class="settings-actions">
+                    <button class="btn-primary" id="saveSettings">💾 保存设置</button>
+                    <button class="btn-secondary" id="resetSettings">↩️ 恢复默认</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 员工编辑弹窗 -->
+    <div class="modal" id="employeeModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="employeeModalTitle">添加员工</h3>
+                <button class="btn-close modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="employeeId">
+                <div class="form-row">
+                    <label>姓名 <span class="required">*</span></label>
+                    <input type="text" id="empName" placeholder="输入员工姓名" required>
+                </div>
+                <div class="form-row">
+                    <label>岗位 <span class="required">*</span></label>
+                    <select id="empPosition">
+                        <option value="服务员">服务员</option>
+                        <option value="厨师">厨师</option>
+                        <option value="收银员">收银员</option>
+                        <option value="店长">店长</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>所属门店 <span class="required">*</span></label>
+                    <select id="empStore">
+                        <!-- 动态生成门店列表 -->
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>可跨店调配</label>
+                    <div class="toggle-container">
+                        <input type="checkbox" id="empCanTransfer" class="toggle-input">
+                        <label for="empCanTransfer" class="toggle-label">
+                            <span class="toggle-text-on">是</span>
+                            <span class="toggle-text-off">否</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label>技能</label>
+                    <div class="skills-select" id="empSkills">
+                        <label class="skill-checkbox"><input type="checkbox" value="收银"> 收银</label>
+                        <label class="skill-checkbox"><input type="checkbox" value="点餐"> 点餐</label>
+                        <label class="skill-checkbox"><input type="checkbox" value="传菜"> 传菜</label>
+                        <label class="skill-checkbox"><input type="checkbox" value="炒菜"> 炒菜</label>
+                        <label class="skill-checkbox"><input type="checkbox" value="凉菜"> 凉菜</label>
+                        <label class="skill-checkbox"><input type="checkbox" value="面点"> 面点</label>
+                        <label class="skill-checkbox"><input type="checkbox" value="清洁"> 清洁</label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label>手机号</label>
+                    <input type="tel" id="empPhone" placeholder="输入手机号">
+                </div>
+                <div class="form-row">
+                    <label>入职日期</label>
+                    <input type="date" id="empHireDate">
+                </div>
+                <div class="form-row">
+                    <label>在职状态</label>
+                    <select id="empStatus">
+                        <option value="active">✅ 在职</option>
+                        <option value="inactive">❌ 离职</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>偏好班次</label>
+                    <select id="empPreferShift" multiple>
+                        <option value="morning">早班</option>
+                        <option value="afternoon">午班</option>
+                        <option value="evening">晚班</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>避免班次</label>
+                    <select id="empAvoidShift" multiple>
+                        <option value="morning">早班</option>
+                        <option value="afternoon">午班</option>
+                        <option value="evening">晚班</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close">取消</button>
+                <button class="btn-primary" id="saveEmployee">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 班次编辑弹窗 -->
+    <div class="modal" id="shiftModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="shiftModalTitle">添加班次</h3>
+                <button class="btn-close modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="shiftId">
+                <div class="form-row">
+                    <label>班次名称 <span class="required">*</span></label>
+                    <input type="text" id="shiftName" placeholder="如：早班、午班、晚班" required>
+                </div>
+                <div class="form-row">
+                    <label>班次代码</label>
+                    <input type="text" id="shiftCode" placeholder="如：M、A、E" maxlength="5">
+                </div>
+                <div class="form-row">
+                    <label>开始时间</label>
+                    <input type="time" id="shiftStart" value="09:00">
+                </div>
+                <div class="form-row">
+                    <label>结束时间</label>
+                    <input type="time" id="shiftEnd" value="14:00">
+                </div>
+                <div class="form-row">
+                    <label>班次颜色</label>
+                    <input type="color" id="shiftColor" value="#f85149">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close">取消</button>
+                <button class="btn-primary" id="saveShift">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 排班详情弹窗 -->
+    <div class="modal" id="assignmentModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3>排班详情</h3>
+                <button class="btn-close modal-close">×</button>
+            </div>
+            <div class="modal-body" id="assignmentDetail">
+                <!-- 动态填充 -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close">关闭</button>
+                <button class="btn-warning" id="swapAssignment">🔄 换班</button>
+                <button class="btn-danger" id="removeAssignment">🗑️ 移除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 手动调班弹窗 -->
+    <div class="modal" id="manualAssignModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="manualAssignTitle">添加排班</h3>
+                <button class="btn-close modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="manualDate">
+                <input type="hidden" id="manualShiftId">
+                <div class="form-row">
+                    <label>日期</label>
+                    <span id="manualDateDisplay" class="form-value"></span>
+                </div>
+                <div class="form-row">
+                    <label>班次</label>
+                    <span id="manualShiftDisplay" class="form-value"></span>
+                </div>
+                <div class="form-row">
+                    <label>选择员工 <span class="required">*</span></label>
+                    <select id="manualEmployee">
+                        <option value="">-- 请选择员工 --</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>岗位</label>
+                    <select id="manualPosition">
+                        <option value="服务员">服务员</option>
+                        <option value="厨师">厨师</option>
+                        <option value="收银员">收银员</option>
+                    </select>
+                </div>
+                <div id="employeeConflictWarning" class="warning-box" style="display:none;">
+                    ⚠️ 该员工在此日期已有排班
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close">取消</button>
+                <button class="btn-primary" id="confirmManualAssign">确认添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 换班弹窗 -->
+    <div class="modal" id="swapModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🔄 换班</h3>
+                <button class="btn-close modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="swapFromId">
+                <div class="swap-info">
+                    <div class="swap-card" id="swapFromCard">
+                        <!-- 原排班信息 -->
+                    </div>
+                    <div class="swap-arrow">🔄</div>
+                    <div class="swap-card" id="swapToCard">
+                        <select id="swapToEmployee" class="swap-select">
+                            <option value="">-- 选择要交换的员工 --</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close">取消</button>
+                <button class="btn-primary" id="confirmSwap">确认换班</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知 Toast -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- 排班报告侧边面板 -->
+    <div class="report-overlay" id="reportOverlay" onclick="toggleReportPanel()"></div>
+    <div class="report-panel" id="reportPanel">
+        <div class="report-header">
+            <h3>📊 排班报告</h3>
+            <button class="report-close-btn" onclick="toggleReportPanel()">×</button>
+        </div>
+        <div class="report-content" id="reportContent">
+            <div class="report-empty">暂无排班数据</div>
+        </div>
+    </div>
+
+    <!-- 换班历史侧边面板 -->
+    <div class="history-overlay" id="historyOverlay" onclick="toggleHistoryPanel()"></div>
+    <div class="history-panel" id="historyPanel">
+        <div class="history-header">
+            <h3>📜 操作历史</h3>
+            <div class="history-actions">
+                <button class="history-clear-btn" onclick="clearShiftHistory()">🗑️ 清空</button>
+                <button class="history-close-btn" onclick="toggleHistoryPanel()">×</button>
+            </div>
+        </div>
+        <div class="history-list" id="historyList">
+            <div class="history-empty">暂无操作记录</div>
+        </div>
+    </div>
+
+    <!-- 自动版本控制 - 按顺序动态加载JS文件 -->
+    <script>
+        (function() {
+            const v = window.APP_VERSION;
+            const scripts = ['js/data.js', 'js/utils.js', 'js/api.js', 'js/app.js'];
+            let index = 0;
+            function loadNext() {
+                if (index >= scripts.length) {
+                    // 所有脚本加载完成后，手动初始化应用
+                    if (typeof initApp === 'function') {
+                        initApp();
+                    }
+                    return;
+                }
+                const script = document.createElement('script');
+                script.src = scripts[index] + '?v=' + v;
+                script.onload = () => { index++; loadNext(); };
+                script.onerror = () => console.error('Failed to load:', scripts[index]);
+                document.body.appendChild(script);
+            }
+            loadNext();
+        })();
+    </script>
+</body>
+</html>

@@ -18,10 +18,23 @@ function daysBetween(start, end) {
   return Math.ceil((e - s) / (1000 * 60 * 60 * 24)) + 1;
 }
 
+// 计算两个经纬度之间的距离（Haversine公式，单位：公里）
+function calcDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // 地球半径（公里）
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 // ========== 全局状态 ==========
 let currentScenario = 'restaurant';
 let isLoading = false;
 let lastResponse = null;
+let lastRequestBody = null; // 保存最后一次请求体用于显示路线
 let constraintTemplatesData = [];
 let constraintLibraryData = [];
 const editModeState = {};
@@ -118,12 +131,25 @@ function renderRequestBizView(body, scenario) {
             if (prefs.avoid_days?.length) prefTags += `<span class="item-tag" style="background: #da3633; color: #fff;">避免${prefs.avoid_days.map(d => weekDays[d]).join('/')}</span>`;
             if (prefs.max_hours_per_week) prefTags += `<span class="item-tag" style="background: #1f6feb; color: #fff;">≤${prefs.max_hours_per_week}h/周</span>`;
           }
+          // 位置信息
+          let locInfo = '';
+          if (e.home_location) {
+            locInfo = `<div class="item-detail" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">📍 ${e.home_location.address || e.home_location.district || '已设置位置'}</div>`;
+          }
+          let areaInfo = '';
+          if (e.service_area) {
+            const areas = [];
+            if (e.service_area.districts?.length) areas.push(e.service_area.districts.join('/'));
+            if (e.service_area.max_radius) areas.push(`${e.service_area.max_radius}km`);
+            if (areas.length) areaInfo = `<span class="item-tag" style="background: #58a6ff; color: #fff;">🗺️ ${areas.join(' ')}</span>`;
+          }
           return `
           <div class="item-card">
             <div class="item-name">👤 ${e.name}</div>
             <div class="item-detail">${e.position || '员工'}</div>
+            ${locInfo}
             ${e.skills?.length ? `<div class="item-tags">${e.skills.map(s => `<span class="item-tag">${s}</span>`).join('')}</div>` : ''}
-            ${prefTags ? `<div class="item-tags" style="margin-top: 4px;">${prefTags}</div>` : ''}
+            ${prefTags || areaInfo ? `<div class="item-tags" style="margin-top: 4px;">${prefTags}${areaInfo}</div>` : ''}
           </div>
         `}).join('')}
       </div>
@@ -149,10 +175,17 @@ function renderRequestBizView(body, scenario) {
           const d = new Date(r.date);
           const shift = body.shifts?.find(s => s.id === r.shift_id);
           const shiftName = shift ? shift.name : '';
+          // 工作地点位置
+          let locInfo = '';
+          if (r.work_location) {
+            const loc = r.work_location;
+            locInfo = `<div class="item-detail" style="font-size: 0.75rem; color: var(--accent-cyan); margin-top: 2px;">📍 ${loc.address || loc.district || '工作地点'}</div>`;
+          }
           return `
             <div class="item-card requirement">
               <div class="item-name">${weekDays[d.getDay()]} ${r.date}</div>
               <div class="item-detail">${r.note || shiftName || '班次'}: ${r.min_employees} 人${r.position ? ` (${r.position})` : ''}</div>
+              ${locInfo}
               <div class="item-tags">
                 ${shiftName ? `<span class="item-tag">${shiftName}</span>` : ''}
                 <span class="item-tag">优先级 ${r.priority || 5}</span>
@@ -258,6 +291,7 @@ async function sendRequest() {
   try { body = JSON.parse(requestBody.value); }
   catch (e) { showError('JSON 格式错误: ' + e.message); return; }
 
+  lastRequestBody = body; // 保存请求体用于显示路线
   isLoading = true;
   sendBtn.disabled = true;
   sendBtn.innerHTML = '⏳ 请求中...';
@@ -382,6 +416,11 @@ function renderResponseBizView(data) {
     const byDay = {};
     data.assignments.forEach(a => { if (!byDay[a.date]) byDay[a.date] = []; byDay[a.date].push(a); });
 
+    // 获取员工和需求信息用于显示路线
+    const employees = lastRequestBody?.employees || [];
+    const requirements = lastRequestBody?.requirements || [];
+    const shifts = lastRequestBody?.shifts || [];
+
     html += `<div class="biz-section"><div class="biz-section-title">📋 排班详情</div>`;
     Object.keys(byDay).sort().forEach(date => {
       const d = new Date(date);
@@ -389,12 +428,57 @@ function renderResponseBizView(data) {
         <div class="day-group">
           <div class="day-header"><span class="day-badge">${weekDays[d.getDay()]}</span><span>${date}</span><span style="color: var(--text-muted);">(${byDay[date].length}个)</span></div>
           <div class="assignment-cards">
-            ${byDay[date].map(a => `
-              <div class="assignment-card">
-                <div class="assignment-emp">👤 ${a.employee_name}</div>
-                <div class="assignment-detail"><span class="assignment-shift">${a.shift_name}</span><span>${a.start_time}-${a.end_time}</span><span style="color:var(--accent-green)">${a.hours}h</span></div>
-              </div>
-            `).join('')}
+            ${byDay[date].map(a => {
+              // 查找员工信息
+              const emp = employees.find(e => e.id === a.employee_id) || {};
+              // 查找对应的需求（通过日期和班次匹配）
+              const req = requirements.find(r => r.date === a.date && (r.shift_id === a.shift_id || r.shift_id === a.shift_code));
+              
+              // 构建路线信息
+              let routeInfo = '';
+              if (emp.home_location || req?.work_location) {
+                const from = emp.home_location?.address || emp.home_location?.district || '';
+                const to = req?.work_location?.address || req?.work_location?.district || '';
+                if (from && to) {
+                  // 计算大致距离（简化版）
+                  let distance = '';
+                  if (emp.home_location?.latitude && req?.work_location?.latitude) {
+                    const dist = calcDistance(
+                      emp.home_location.latitude, emp.home_location.longitude,
+                      req.work_location.latitude, req.work_location.longitude
+                    );
+                    distance = ` · ${dist.toFixed(1)}km`;
+                  }
+                  routeInfo = `<div class="assignment-route">🚗 ${from} → ${to}${distance}</div>`;
+                } else if (to) {
+                  routeInfo = `<div class="assignment-route">📍 ${to}</div>`;
+                }
+              }
+              
+              // 构建评分信息
+              let scoreInfo = '';
+              if (a.score !== undefined) {
+                const scoreColor = a.score >= 90 ? 'var(--accent-green)' : (a.score >= 70 ? 'var(--accent-cyan)' : (a.score >= 50 ? 'var(--accent-orange)' : 'var(--accent-red)'));
+                const scoreIcon = a.score >= 90 ? '⭐' : (a.score >= 70 ? '✓' : (a.score >= 50 ? '◐' : '⚠'));
+                let scoreDetail = '';
+                if (a.score_detail?.reasons?.length > 0) {
+                  scoreDetail = ` · ${a.score_detail.reasons.slice(0, 2).join(' · ')}`;
+                }
+                scoreInfo = `<div class="assignment-score" style="font-size: 0.75rem; color: ${scoreColor}; font-weight: 600;">${scoreIcon} ${a.score.toFixed(0)}分${scoreDetail}</div>`;
+              }
+              
+              return `
+                <div class="assignment-card">
+                  <div class="assignment-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="assignment-emp">👤 ${a.employee_name}</div>
+                    ${a.score !== undefined ? `<span class="score-badge" style="background: ${a.score >= 90 ? 'var(--accent-green)' : (a.score >= 70 ? 'var(--accent-cyan)' : 'var(--accent-orange)')}; color: #000; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">${a.score.toFixed(0)}</span>` : ''}
+                  </div>
+                  <div class="assignment-detail"><span class="assignment-shift">${a.shift_name}</span><span>${a.start_time}-${a.end_time}</span><span style="color:var(--accent-green)">${a.hours}h</span></div>
+                  ${routeInfo}
+                  ${scoreInfo}
+                </div>
+              `;
+            }).join('')}
           </div>
         </div>
       `;
@@ -498,8 +582,9 @@ function renderUnfilledRequirements(unfilled) {
     items.forEach(item => {
       const shiftName = item.shift_name || getShiftNameFromId(item.shift_id);
       const reason = item.reason || '无可用员工';
-      const needed = item.needed || 1;
+      const needed = item.required || item.needed || item.min_employees || 1;
       const assigned = item.assigned || 0;
+      const shortage = item.shortage || (needed - assigned);
       
       html += `
         <div class="unfilled-item" style="background: var(--bg-tertiary); border: 1px solid rgba(248, 81, 73, 0.3); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.85rem;">
@@ -509,8 +594,8 @@ function renderUnfilledRequirements(unfilled) {
             ${item.position ? `<span style="color: var(--text-muted);">(${item.position})</span>` : ''}
           </div>
           <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.25rem;">
-            需要 ${needed} 人，仅分配 ${assigned} 人
-            ${item.reason ? ` · <span style="color: var(--accent-orange);">${reason}</span>` : ''}
+            需要 ${needed} 人，已分配 ${assigned} 人，<span style="color: var(--accent-red); font-weight: 500;">缺 ${shortage} 人</span>
+            · <span style="color: var(--accent-orange);">${reason}</span>
           </div>
         </div>
       `;

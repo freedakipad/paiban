@@ -232,9 +232,9 @@ func (c *ComprehensiveMatcher) scoreEmployee(order *model.ServiceOrder, emp *mod
 	// 距离评分
 	var distance float64
 	var distanceScore float64 = 100
-	if order.Location != nil {
-		// TODO: 获取员工位置
-		distance = 0
+	if order.Location != nil && emp.HomeLocation != nil {
+		// 使用员工的家庭位置计算到工作地点的距离
+		distance = emp.HomeLocation.Distance(*order.Location)
 		distanceScore = c.distanceMatcher.ScoreDistance(distance)
 	}
 

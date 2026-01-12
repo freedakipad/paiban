@@ -10,6 +10,7 @@ func RegisterDefaultConstraints(manager *constraint.Manager, config map[string]i
 	// 从配置中获取参数，使用默认值
 	maxHoursPerDay := getConfigInt(config, "max_hours_per_day", 10)
 	maxHoursPerWeek := getConfigInt(config, "max_hours_per_week", 44)
+	maxHoursPerPeriod := getConfigInt(config, "max_hours_per_period", 0) // 0表示不限制
 	minRestBetweenShifts := getConfigInt(config, "min_rest_between_shifts", 10)
 	maxConsecutiveDays := getConfigInt(config, "max_consecutive_days", 6)
 	standardHoursPerWeek := getConfigInt(config, "standard_hours_per_week", 40)
@@ -18,11 +19,24 @@ func RegisterDefaultConstraints(manager *constraint.Manager, config map[string]i
 	minimizeOvertimeWeight := getConfigInt(config, "minimize_overtime_weight", 70)
 	tolerancePercent := getConfigFloat(config, "workload_tolerance_percent", 20.0)
 
+	// 工时模式: "weekly"(按周) 或 "period"(按排班周期)
+	hoursMode := getConfigString(config, "hours_mode", "weekly")
+
 	// 注册硬约束
 	manager.Register(NewMaxHoursPerDayConstraint(maxHoursPerDay))
-	manager.Register(NewMaxHoursPerWeekConstraint(maxHoursPerWeek))
+
+	// 根据工时模式选择约束
+	if hoursMode == "period" && maxHoursPerPeriod > 0 {
+		// 按排班周期计算工时（适用于月度排班）
+		manager.Register(NewMaxHoursPerPeriodConstraint(maxHoursPerPeriod))
+	} else {
+		// 按周计算工时（默认模式）
+		manager.Register(NewMaxHoursPerWeekConstraint(maxHoursPerWeek))
+	}
+
 	manager.Register(NewMinRestBetweenShiftsConstraint(minRestBetweenShifts))
 	manager.Register(NewMaxConsecutiveDaysConstraint(maxConsecutiveDays))
+	manager.Register(NewMaxShiftsPerDayConstraint(1)) // 每天最多1个班次
 	manager.Register(NewSkillRequiredConstraint())
 
 	// 注册软约束

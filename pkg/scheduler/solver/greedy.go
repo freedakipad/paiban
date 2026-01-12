@@ -69,7 +69,10 @@ func (s *GreedySolver) SetMaxIterations(max int) {
 	s.maxIterations = max
 }
 
-// Solve 使用贪心算法生成排班
+// Solve 使用两阶段均衡贪心算法生成排班
+// 第一阶段：为每个需求分配最少1人（保证每天每班次都有基本覆盖）
+// 第二阶段：逐步增加人数直到满足最小需求
+// 这样可以在资源不足时实现更均衡的分配
 func (s *GreedySolver) Solve(ctx context.Context, schedCtx *constraint.Context) (*Result, error) {
 	startTime := time.Now()
 	s.logger.StartSchedule(schedCtx.OrgID.String(), len(schedCtx.Employees), countDays(schedCtx.StartDate, schedCtx.EndDate))
@@ -91,7 +94,7 @@ func (s *GreedySolver) Solve(ctx context.Context, schedCtx *constraint.Context) 
 		return result, nil
 	}
 
-	// 按优先级和日期排序需求
+	// 复制需求并按优先级和日期排序
 	requirements := make([]*model.ShiftRequirement, len(schedCtx.Requirements))
 	copy(requirements, schedCtx.Requirements)
 	sort.Slice(requirements, func(i, j int) bool {
@@ -107,59 +110,105 @@ func (s *GreedySolver) Solve(ctx context.Context, schedCtx *constraint.Context) 
 		employeeHours[emp.ID] = 0
 	}
 
-	iterations := 0
-	filledRequirements := 0
-
-	// 遍历每个需求
+	// 跟踪每个需求的已分配人数
+	reqAssigned := make(map[uuid.UUID]int)
 	for _, req := range requirements {
+		reqAssigned[req.ID] = 0
+	}
+
+	iterations := 0
+
+	// ===== 两阶段均衡排班策略 =====
+	// 计算最大需要分配的轮次（取所有需求中最大的人数需求）
+	maxRounds := 1
+	for _, req := range requirements {
+		target := req.MinEmployees
+		if req.OptEmployees > target {
+			target = req.OptEmployees
+		}
+		if target > maxRounds {
+			maxRounds = target
+		}
+	}
+
+	// 按轮次分配：每轮为每个需求分配1人
+	// 这样即使资源不足，也能保证所有日期都有基本覆盖
+	for round := 1; round <= maxRounds; round++ {
 		if ctx.Err() != nil {
 			return result, ctx.Err()
 		}
 
-		iterations++
-		if iterations > s.maxIterations {
-			break
-		}
+		// 按日期均匀分布的方式遍历需求
+		// 将需求按日期分组，然后交替处理每天的需求
+		dateReqs := s.groupRequirementsByDate(requirements)
+		dates := s.getSortedDates(dateReqs)
 
-		shift := schedCtx.GetShift(req.ShiftID)
-		if shift == nil {
-			continue
-		}
+		for _, date := range dates {
+			for _, req := range dateReqs[date] {
+				if ctx.Err() != nil {
+					return result, ctx.Err()
+				}
 
-		// 计算需要分配的人数
-		targetCount := req.OptEmployees
-		if targetCount == 0 {
-			targetCount = req.MinEmployees
-		}
+				iterations++
+				if iterations > s.maxIterations {
+					break
+				}
 
-		assignedCount := 0
+				// 计算本需求的目标人数
+				targetCount := req.MinEmployees
+				if req.OptEmployees > 0 && req.OptEmployees > targetCount {
+					targetCount = req.OptEmployees
+				}
 
-		// 获取候选员工（按工作量升序排序以保证公平）
-		candidates := s.getCandidates(schedCtx, req, employeeHours)
+				// 如果已经满足目标，跳过
+				if reqAssigned[req.ID] >= targetCount {
+					continue
+				}
 
-		for _, emp := range candidates {
-			if assignedCount >= targetCount {
-				break
+				// 本轮只分配1人（确保公平）
+				if reqAssigned[req.ID] >= round {
+					continue
+				}
+
+				shift := schedCtx.GetShift(req.ShiftID)
+				if shift == nil {
+					continue
+				}
+
+				// 获取候选员工（按工作量升序排序以保证公平）
+				candidates := s.getCandidates(schedCtx, req, employeeHours)
+
+				assigned := false
+				for _, emp := range candidates {
+					if assigned {
+						break
+					}
+
+					// 创建候选分配
+					assignment := s.createAssignment(schedCtx, emp, req, shift)
+
+					// 检查约束
+					canAssign, reason := s.constraintManager.CanAssign(schedCtx, assignment)
+					if !canAssign {
+						s.logger.ConstraintViolation("分配检查", fmt.Sprintf("员工 %s: %s", emp.Name, reason))
+						continue
+					}
+
+					// 添加分配
+					schedCtx.AddAssignment(assignment)
+					result.Assignments = append(result.Assignments, assignment)
+					employeeHours[emp.ID] += assignment.WorkingHours()
+					reqAssigned[req.ID]++
+					assigned = true
+				}
 			}
-
-			// 创建候选分配
-			assignment := s.createAssignment(schedCtx, emp, req, shift)
-
-			// 检查约束
-			canAssign, reason := s.constraintManager.CanAssign(schedCtx, assignment)
-			if !canAssign {
-				s.logger.ConstraintViolation("分配检查", fmt.Sprintf("员工 %s: %s", emp.Name, reason))
-				continue
-			}
-
-			// 添加分配
-			schedCtx.AddAssignment(assignment)
-			result.Assignments = append(result.Assignments, assignment)
-			employeeHours[emp.ID] += assignment.WorkingHours()
-			assignedCount++
 		}
+	}
 
-		if assignedCount >= req.MinEmployees {
+	// 统计满足需求数
+	filledRequirements := 0
+	for _, req := range requirements {
+		if reqAssigned[req.ID] >= req.MinEmployees {
 			filledRequirements++
 		}
 	}
@@ -210,8 +259,19 @@ func (s *GreedySolver) Solve(ctx context.Context, schedCtx *constraint.Context) 
 func (s *GreedySolver) getCandidates(ctx *constraint.Context, req *model.ShiftRequirement, hours map[uuid.UUID]float64) []*model.Employee {
 	var candidates []*model.Employee
 
+	// 获取该日期已分配的员工ID集合
+	assignedToday := make(map[uuid.UUID]bool)
+	for _, a := range ctx.GetDateAssignments(req.Date) {
+		assignedToday[a.EmployeeID] = true
+	}
+
 	for _, emp := range ctx.Employees {
 		if !emp.IsActive() {
+			continue
+		}
+
+		// 排除今天已经分配过的员工（每天最多1班）
+		if assignedToday[emp.ID] {
 			continue
 		}
 
@@ -285,4 +345,29 @@ func countDays(startDate, endDate string) int {
 		return 0
 	}
 	return int(end.Sub(start).Hours()/24) + 1
+}
+
+// groupRequirementsByDate 按日期分组需求
+func (s *GreedySolver) groupRequirementsByDate(requirements []*model.ShiftRequirement) map[string][]*model.ShiftRequirement {
+	result := make(map[string][]*model.ShiftRequirement)
+	for _, req := range requirements {
+		result[req.Date] = append(result[req.Date], req)
+	}
+	// 对每天的需求按优先级排序
+	for date := range result {
+		sort.Slice(result[date], func(i, j int) bool {
+			return result[date][i].Priority > result[date][j].Priority
+		})
+	}
+	return result
+}
+
+// getSortedDates 获取排序后的日期列表
+func (s *GreedySolver) getSortedDates(dateReqs map[string][]*model.ShiftRequirement) []string {
+	dates := make([]string, 0, len(dateReqs))
+	for date := range dateReqs {
+		dates = append(dates, date)
+	}
+	sort.Strings(dates)
+	return dates
 }

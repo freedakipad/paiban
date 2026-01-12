@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/paiban/paiban/internal/constraints"
 	"github.com/paiban/paiban/internal/handler"
 	"github.com/paiban/paiban/internal/metrics"
 	"github.com/paiban/paiban/pkg/logger"
@@ -453,7 +454,17 @@ func handleConstraintLibrary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 完整的约束库 - 后端实际支持的所有约束
+	// 使用独立的约束库模块
+	library := constraints.GetLibrary()
+
+	response := constraints.LibraryResponse{Library: library}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleConstraintLibrary_OLD 保留旧的约束定义以便参考（未使用）
+func handleConstraintLibrary_OLD(w http.ResponseWriter, r *http.Request) {
 	library := []ConstraintDefinition{
 		// ========================================
 		// 通用硬约束
@@ -718,9 +729,5 @@ func handleConstraintLibrary(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 	}
-
-	response := ConstraintLibraryResponse{Library: library}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	_ = library // 未使用
 }

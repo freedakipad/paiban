@@ -15,39 +15,39 @@ import (
 
 // Schedule 排班记录
 type Schedule struct {
-	ID            uuid.UUID          `json:"id"`
-	OrgID         uuid.UUID          `json:"org_id"`
-	Scenario      string             `json:"scenario"`
-	StartDate     string             `json:"start_date"`
-	EndDate       string             `json:"end_date"`
-	Status        string             `json:"status"` // draft/published/archived
-	TotalSlots    int                `json:"total_slots"`
-	FilledSlots   int                `json:"filled_slots"`
-	FillRate      float64            `json:"fill_rate"`
-	Feasible      bool               `json:"feasible"`
-	SoftScore     float64            `json:"soft_score"`
-	GeneratedAt   time.Time          `json:"generated_at"`
-	GeneratedBy   string             `json:"generated_by"` // system/manual
-	Metadata      map[string]any     `json:"metadata,omitempty"`
-	CreatedAt     time.Time          `json:"created_at"`
-	UpdatedAt     time.Time          `json:"updated_at"`
+	ID          uuid.UUID      `json:"id"`
+	OrgID       uuid.UUID      `json:"org_id"`
+	Scenario    string         `json:"scenario"`
+	StartDate   string         `json:"start_date"`
+	EndDate     string         `json:"end_date"`
+	Status      string         `json:"status"` // draft/published/archived
+	TotalSlots  int            `json:"total_slots"`
+	FilledSlots int            `json:"filled_slots"`
+	FillRate    float64        `json:"fill_rate"`
+	Feasible    bool           `json:"feasible"`
+	SoftScore   float64        `json:"soft_score"`
+	GeneratedAt time.Time      `json:"generated_at"`
+	GeneratedBy string         `json:"generated_by"` // system/manual
+	Metadata    map[string]any `json:"metadata,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 // ScheduleAssignment 排班分配记录
 type ScheduleAssignment struct {
-	ID           uuid.UUID  `json:"id"`
-	ScheduleID   uuid.UUID  `json:"schedule_id"`
-	EmployeeID   uuid.UUID  `json:"employee_id"`
-	EmployeeName string     `json:"employee_name"`
-	ShiftID      uuid.UUID  `json:"shift_id"`
-	ShiftName    string     `json:"shift_name"`
-	Date         string     `json:"date"`
-	StartTime    string     `json:"start_time"`
-	EndTime      string     `json:"end_time"`
-	Position     string     `json:"position"`
-	Status       string     `json:"status"` // assigned/confirmed/cancelled
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	ID           uuid.UUID `json:"id"`
+	ScheduleID   uuid.UUID `json:"schedule_id"`
+	EmployeeID   uuid.UUID `json:"employee_id"`
+	EmployeeName string    `json:"employee_name"`
+	ShiftID      uuid.UUID `json:"shift_id"`
+	ShiftName    string    `json:"shift_name"`
+	Date         string    `json:"date"`
+	StartTime    string    `json:"start_time"`
+	EndTime      string    `json:"end_time"`
+	Position     string    `json:"position"`
+	Status       string    `json:"status"` // assigned/confirmed/cancelled
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // ScheduleRepository 排班仓储接口

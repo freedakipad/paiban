@@ -17,6 +17,7 @@ const (
 	TypeMaxHoursPerWeek        Type = "max_hours_per_week"
 	TypeMinRestBetweenShifts   Type = "min_rest_between_shifts"
 	TypeMaxConsecutiveDays     Type = "max_consecutive_days"
+	TypeMaxShiftsPerDay        Type = "max_shifts_per_day"
 	TypeSkillRequired          Type = "skill_required"
 	TypeProductionLineCoverage Type = "production_line_coverage"
 	TypeShiftRotationPattern   Type = "shift_rotation_pattern"
@@ -216,26 +217,41 @@ func (c *Context) GetEmployeeHoursInRange(empID uuid.UUID, startDate, endDate st
 	return hours
 }
 
-// GetEmployeeConsecutiveDays 获取员工连续工作天数
-func (c *Context) GetEmployeeConsecutiveDays(empID uuid.UUID, beforeDate string) int {
+// GetEmployeeConsecutiveDays 获取员工在指定日期前后的连续工作天数
+// 返回：如果在该日期分配，会形成的最大连续工作天数
+func (c *Context) GetEmployeeConsecutiveDays(empID uuid.UUID, targetDate string) int {
 	// 获取员工排班的日期
 	dates := make(map[string]bool)
 	for _, a := range c.assignmentsByEmp[empID] {
 		dates[a.Date] = true
 	}
 
-	// 从指定日期往前数连续工作天数
-	count := 0
-	currentDate := beforeDate
+	// 往前数连续工作天数（不包括目标日期）
+	countBefore := 0
+	currentDate := previousDate(targetDate)
 	for dates[currentDate] {
-		count++
-		// 日期减一天（简化实现，实际应使用time包）
+		countBefore++
 		currentDate = previousDate(currentDate)
-		if count > 30 { // 防止无限循环
+		if countBefore > 30 { // 防止无限循环
 			break
 		}
 	}
-	return count
+
+	// 往后数连续工作天数（不包括目标日期）
+	countAfter := 0
+	currentDate = nextDate(targetDate)
+	for dates[currentDate] {
+		countAfter++
+		currentDate = nextDate(currentDate)
+		if countAfter > 30 { // 防止无限循环
+			break
+		}
+	}
+
+	// 返回：前面连续天数 + 后面连续天数（如果分配目标日期，总连续天数 = countBefore + 1 + countAfter）
+	// 但这里只返回前面的连续天数，因为调用方会 +1
+	// 为了正确计算，我们返回 countBefore + countAfter，让调用方 +1 后得到正确的总连续天数
+	return countBefore + countAfter
 }
 
 // previousDate 获取前一天日期
@@ -245,6 +261,15 @@ func previousDate(date string) string {
 		return ""
 	}
 	return t.AddDate(0, 0, -1).Format("2006-01-02")
+}
+
+// nextDate 获取后一天日期
+func nextDate(date string) string {
+	t, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return ""
+	}
+	return t.AddDate(0, 0, 1).Format("2006-01-02")
 }
 
 // Result 约束评估结果
