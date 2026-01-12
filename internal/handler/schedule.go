@@ -57,11 +57,12 @@ type GenerateRequest struct {
 
 // EmployeeInput 员工输入
 type EmployeeInput struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Position string   `json:"position,omitempty"`
-	Skills   []string `json:"skills,omitempty"`
-	Status   string   `json:"status,omitempty"`
+	ID                  string         `json:"id"`
+	Name                string         `json:"name"`
+	Position            string         `json:"position,omitempty"`
+	Skills              []string       `json:"skills,omitempty"`
+	Status              string         `json:"status,omitempty"`
+	MonthlyShiftsCounts map[string]int `json:"monthly_shifts_counts,omitempty"` // 每月已有班次数 (key: YYYY-MM)
 }
 
 // ShiftInput 班次输入
@@ -206,11 +207,12 @@ func (h *ScheduleHandler) Generate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		emp := &model.Employee{
-			BaseModel: model.BaseModel{ID: id},
-			Name:      e.Name,
-			Position:  e.Position,
-			Skills:    e.Skills,
-			Status:    e.Status,
+			BaseModel:           model.BaseModel{ID: id},
+			Name:                e.Name,
+			Position:            e.Position,
+			Skills:              e.Skills,
+			Status:              e.Status,
+			MonthlyShiftsCounts: e.MonthlyShiftsCounts,
 		}
 		if emp.Status == "" {
 			emp.Status = "active"

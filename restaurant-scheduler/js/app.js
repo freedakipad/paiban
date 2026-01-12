@@ -46,14 +46,15 @@ function toggleShiftCollapse(shiftId) {
     renderScheduleGrid();
 }
 
-// 测算排班缺口
+// 测算排班缺口和超员
 function checkScheduleGaps() {
     const weekDates = appState.getWeekDates();
-    const gaps = [];
+    const gaps = [];      // 人员不足
+    const overages = [];  // 人员多余
     const isAllMode = appState.isAllStoresMode();
     const stores = isAllMode ? appState.getAllStores() : [appState.getCurrentStore()].filter(Boolean);
     
-    // 遍历每天、每个班次检查缺口
+    // 遍历每天、每个班次检查缺口和超员
     weekDates.forEach(date => {
         const dateStr = formatDate(date);
         appState.shifts.forEach(shift => {
@@ -79,10 +80,19 @@ function checkScheduleGaps() {
                 });
             });
             
-            // 检查每个岗位的缺口
-            Object.entries(totalReqByPosition).forEach(([pos, required]) => {
+            // 获取所有涉及的岗位（需求 + 已分配）
+            const allPositions = new Set([
+                ...Object.keys(totalReqByPosition),
+                ...Object.keys(positionAssigned)
+            ]);
+            
+            // 检查每个岗位的缺口或超员
+            allPositions.forEach(pos => {
+                const required = totalReqByPosition[pos] || 0;
                 const assigned = positionAssigned[pos] || 0;
+                
                 if (assigned < required) {
+                    // 人员不足
                     gaps.push({
                         date: dateStr,
                         shiftId: shift.id,
@@ -92,18 +102,33 @@ function checkScheduleGaps() {
                         assigned,
                         gap: required - assigned
                     });
+                } else if (assigned > required) {
+                    // 人员多余
+                    overages.push({
+                        date: dateStr,
+                        shiftId: shift.id,
+                        shiftName: shift.name,
+                        position: pos,
+                        required,
+                        assigned,
+                        overage: assigned - required
+                    });
                 }
             });
         });
     });
     
-    // 高亮显示有缺口的单元格
+    // 清除之前的高亮
     document.querySelectorAll('.grid-cell.has-gap').forEach(cell => {
         cell.classList.remove('has-gap');
     });
+    document.querySelectorAll('.grid-cell.has-overage').forEach(cell => {
+        cell.classList.remove('has-overage');
+    });
     
-    if (gaps.length === 0) {
-        showToast('✅ 测算完成：所有班次已满足需求！', 'success');
+    // 没有问题时显示成功消息
+    if (gaps.length === 0 && overages.length === 0) {
+        showToast('✅ 测算完成：所有班次人员配置正好！', 'success');
         return;
     }
     
@@ -115,14 +140,45 @@ function checkScheduleGaps() {
         }
     });
     
-    // 显示缺口汇总
-    const totalGap = gaps.reduce((sum, g) => sum + g.gap, 0);
-    const gapSummary = gaps.slice(0, 3).map(g => 
-        `${g.date.slice(5)} ${g.shiftName} ${g.position}缺${g.gap}人`
-    ).join('；');
-    const moreText = gaps.length > 3 ? `...等${gaps.length}处` : '';
+    // 高亮有超员的单元格
+    overages.forEach(o => {
+        const cell = document.querySelector(`.grid-cell[data-date="${o.date}"][data-shift="${o.shiftId}"]`);
+        if (cell) {
+            cell.classList.add('has-overage');
+        }
+    });
     
-    showToast(`⚠️ 发现${totalGap}个缺口：${gapSummary}${moreText}`, 'warning');
+    // 构建汇总消息
+    const messages = [];
+    
+    // 缺口汇总
+    if (gaps.length > 0) {
+        const totalGap = gaps.reduce((sum, g) => sum + g.gap, 0);
+        const gapSummary = gaps.slice(0, 2).map(g => 
+            `${g.date.slice(5)} ${g.shiftName} ${g.position}缺${g.gap}人`
+        ).join('；');
+        const moreGapText = gaps.length > 2 ? `...等${gaps.length}处` : '';
+        messages.push(`⚠️ 不足${totalGap}人：${gapSummary}${moreGapText}`);
+    }
+    
+    // 超员汇总
+    if (overages.length > 0) {
+        const totalOverage = overages.reduce((sum, o) => sum + o.overage, 0);
+        const overageSummary = overages.slice(0, 2).map(o => 
+            `${o.date.slice(5)} ${o.shiftName} ${o.position}多${o.overage}人`
+        ).join('；');
+        const moreOverageText = overages.length > 2 ? `...等${overages.length}处` : '';
+        messages.push(`📊 超员${totalOverage}人：${overageSummary}${moreOverageText}`);
+    }
+    
+    // 根据情况显示不同类型的消息
+    if (gaps.length > 0 && overages.length > 0) {
+        showToast(messages.join(' | '), 'warning');
+    } else if (gaps.length > 0) {
+        showToast(messages[0], 'warning');
+    } else {
+        showToast(messages[0], 'info');
+    }
 }
 
 // 切换评分明细展开/折叠
@@ -1097,7 +1153,9 @@ function renderScheduleGrid() {
             
             const assigned = cellAssignments.length;
             
-            html += `<div class="grid-cell" data-date="${dateStr}" data-shift="${shift.id}">`;
+            // 非只读状态下启用拖放
+            const dropEvents = isReadOnly ? '' : `ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, '${dateStr}', '${shift.id}')"`;
+            html += `<div class="grid-cell" data-date="${dateStr}" data-shift="${shift.id}" ${dropEvents}>`;
             
             // 显示排班卡片
             cellAssignments.forEach(a => {
@@ -1108,13 +1166,14 @@ function renderScheduleGrid() {
                 
                 // 获取门店信息和岗位样式
                 const emp = appState.employees.find(e => e.name === a.employeeName);
-                const homeStoreId = emp?.storeId || a.storeId || '';
+                // 员工所属门店（优先从员工记录获取）
+                const homeStoreId = emp?.storeId || '';
                 const homeStore = appState.stores.find(s => s.id === homeStoreId);
-                const homeStoreCode = homeStore?.code || a.storeCode || '';
-                const homeStoreName = homeStore?.name || a.storeName || '';
+                const homeStoreCode = homeStore?.code || '';
+                const homeStoreName = homeStore?.name || '';
                 
                 // 工作门店（排班分配到的门店）
-                const workStoreId = a.workStoreId || a.storeId || homeStoreId;
+                const workStoreId = a.workStoreId || a.storeId || '';
                 const workStore = appState.stores.find(s => s.id === workStoreId);
                 const workStoreCode = a.workStoreCode || workStore?.code || '';
                 const workStoreName = a.workStoreName || workStore?.name || '';
@@ -1123,15 +1182,19 @@ function renderScheduleGrid() {
                 const homeStoreClass = getStoreClass(homeStoreCode);
                 const workStoreClass = getStoreClass(workStoreCode);
                 
-                // 判断是否跨店（所属门店与工作门店不同）
-                const isCrossStore = homeStoreId && workStoreId && homeStoreId !== workStoreId;
+                // 判断是否跨店（必须两个门店ID都有效且不同，且门店代码也不同）
+                const isCrossStore = homeStoreId && workStoreId && 
+                                     homeStoreId !== workStoreId && 
+                                     homeStoreCode !== workStoreCode;
                 
                 // 获取员工手机号（完整）
                 const phone = emp?.phone || '';
                 
                 // 紧凑卡片：姓名 + 岗位色签 + 门店色签（跨店显示两个门店）+ 完整手机号
+                // 非只读状态下启用拖拽
+                const draggableAttr = isReadOnly ? '' : `draggable="true" ondragstart="handleDragStart(event, '${a.id}')"`;
                 html += `
-                    <div class="assignment-card compact ${shiftClass} ${readOnlyClass} ${isCrossStore ? 'cross-store' : ''}" data-id="${a.id}" ${clickHandler}>
+                    <div class="assignment-card compact ${shiftClass} ${readOnlyClass} ${isCrossStore ? 'cross-store' : ''}" data-id="${a.id}" ${draggableAttr} ${clickHandler}>
                         <span class="card-name">${formatEmployeeNameByName(a.employeeName)}</span>
                         <span class="card-tag ${positionClass}">${a.position || ''}</span>
                         ${isCrossStore ? `
@@ -1146,18 +1209,53 @@ function renderScheduleGrid() {
             
             // 只读状态（发布/归档）不显示添加按钮
             if (!isReadOnly) {
-                // 计算每个岗位的缺口
+                // 计算每个岗位的缺口（带门店信息）
                 const positionGaps = calculatePositionGaps(date, shift.id, cellAssignments, filterStoreId, isAllMode);
                 const hasGaps = positionGaps.length > 0;
                 
+                // 计算每个岗位的超编（带门店信息）
+                const positionOverstaffing = calculatePositionOverstaffing(date, shift.id, cellAssignments, filterStoreId, isAllMode);
+                const hasOverstaffing = positionOverstaffing.length > 0;
+                
                 if (hasGaps) {
-                    // 按岗位显示缺口
-                    const gapText = positionGaps.map(g => `${g.position}${g.gap}人`).join('，');
-                    html += `<div class="requirement-indicator unfilled" onclick="openManualAssign('${dateStr}', '${shift.id}'); event.stopPropagation();">+ 还缺${gapText}</div>`;
-                } else if (totalRequired > 0) {
-                    html += `<div class="add-assignment-btn" onclick="openManualAssign('${dateStr}', '${shift.id}'); event.stopPropagation();">+</div>`;
-                } else {
-                    html += `<div class="add-assignment-btn" onclick="openManualAssign('${dateStr}', '${shift.id}'); event.stopPropagation();">+</div>`;
+                    // 按门店和岗位显示缺口
+                    if (isAllMode && positionGaps.length > 0) {
+                        // 多门店模式：显示门店信息
+                        const gapText = positionGaps.map(g => `${g.storeCode}${g.position}${g.gap}人`).join('，');
+                        // 点击时打开第一个缺口对应的门店
+                        const firstGap = positionGaps[0];
+                        html += `<div class="requirement-indicator unfilled" onclick="openManualAssignWithStore('${dateStr}', '${shift.id}', '${firstGap.storeId}', '${firstGap.position}'); event.stopPropagation();">+ 缺${gapText}</div>`;
+                    } else {
+                        // 单门店模式：不显示门店
+                        const gapText = positionGaps.map(g => `${g.position}${g.gap}人`).join('，');
+                        html += `<div class="requirement-indicator unfilled" onclick="openManualAssign('${dateStr}', '${shift.id}'); event.stopPropagation();">+ 还缺${gapText}</div>`;
+                    }
+                }
+                
+                if (hasOverstaffing) {
+                    // 按门店和岗位显示超编（点击可移除）
+                    if (isAllMode && positionOverstaffing.length > 0) {
+                        const overText = positionOverstaffing.map(o => `${o.storeCode}${o.position}${o.over}人`).join('，');
+                        // 点击时可以移除第一个超编岗位的排班
+                        const firstOver = positionOverstaffing[0];
+                        const idsToRemove = JSON.stringify(firstOver.assignmentIds.slice(-firstOver.over));
+                        html += `<div class="requirement-indicator overstaffed" onclick="confirmRemoveOverstaffing(${idsToRemove}, '${firstOver.storeName}', '${firstOver.position}', ${firstOver.over}); event.stopPropagation();" title="点击移除多余排班">⚠ 多${overText}</div>`;
+                    } else {
+                        const overText = positionOverstaffing.map(o => `${o.position}${o.over}人`).join('，');
+                        if (positionOverstaffing.length > 0) {
+                            const firstOver = positionOverstaffing[0];
+                            const idsToRemove = JSON.stringify(firstOver.assignmentIds.slice(-firstOver.over));
+                            html += `<div class="requirement-indicator overstaffed" onclick="confirmRemoveOverstaffing(${idsToRemove}, '${firstOver.storeName || '当前门店'}', '${firstOver.position}', ${firstOver.over}); event.stopPropagation();" title="点击移除多余排班">⚠ 多出${overText}</div>`;
+                        }
+                    }
+                }
+                
+                if (!hasGaps && !hasOverstaffing) {
+                    if (totalRequired > 0) {
+                        html += `<div class="add-assignment-btn" onclick="openManualAssign('${dateStr}', '${shift.id}'); event.stopPropagation();">+</div>`;
+                    } else {
+                        html += `<div class="add-assignment-btn" onclick="openManualAssign('${dateStr}', '${shift.id}'); event.stopPropagation();">+</div>`;
+                    }
                 }
             }
             
@@ -1178,25 +1276,170 @@ function updateScheduleStats() {
     // 根据筛选器过滤排班数据
     let filteredAssignments = appState.assignments;
     if (filterStoreId !== 'all' && appState.isAllStoresMode()) {
-        filteredAssignments = appState.assignments.filter(a => a.storeId === filterStoreId);
+        filteredAssignments = appState.assignments.filter(a => {
+            const workStore = a.workStoreId || a.storeId;
+            return workStore === filterStoreId;
+        });
     }
     
-    // 更新总班次
+    // 计算应排班次（所有门店需求总数）
+    const weekDates = appState.getWeekDates();
+    const totalRequired = calculateTotalRequiredForStore(weekDates, filterStoreId);
+    
+    // 更新应排班次
+    document.getElementById('statRequired').textContent = totalRequired;
+    
+    // 更新已排班次
     document.getElementById('statTotal').textContent = filteredAssignments.length;
     
-    // 更新平均评分
-    if (filteredAssignments.length > 0) {
-        const avgScore = filteredAssignments.reduce((sum, a) => sum + (a.score || 0), 0) / filteredAssignments.length;
-        document.getElementById('statScore').textContent = Math.round(avgScore);
-    } else {
-        document.getElementById('statScore').textContent = '--';
-    }
-    
-    // 计算满足率 - 根据筛选器计算
-    const weekDates = appState.getWeekDates();
-    const rate = calculateSatisfactionRateForStore(weekDates, filteredAssignments, filterStoreId);
+    // 计算满足率
+    const rate = totalRequired > 0 
+        ? Math.floor((filteredAssignments.length / totalRequired) * 100)
+        : 100;
     document.getElementById('statRate').textContent = `${rate}%`;
 }
+
+/**
+ * 计算指定门店的总需求班次数
+ */
+function calculateTotalRequiredForStore(weekDates, storeId) {
+    let totalRequired = 0;
+    const allPositions = ['服务员', '厨师', '收银员'];
+    
+    // 确定要统计的门店
+    let storesToCheck;
+    if (storeId === 'all') {
+        if (appState.isAllStoresMode()) {
+            storesToCheck = appState.getAllStores();
+        } else {
+            storesToCheck = [appState.getCurrentStore()].filter(Boolean);
+        }
+    } else {
+        const store = appState.stores.find(s => s.id === storeId);
+        storesToCheck = store ? [store] : [];
+    }
+    
+    weekDates.forEach(date => {
+        storesToCheck.forEach(store => {
+            appState.shifts.forEach(shift => {
+                allPositions.forEach(pos => {
+                    const required = getRequiredCount(date, shift.id, pos, store.id);
+                    if (required > 0) {
+                        totalRequired += required;
+                    }
+                });
+            });
+        });
+    });
+    
+    return totalRequired;
+}
+
+/* ========================================
+   拖拽排班功能
+   ======================================== */
+
+let draggedAssignmentId = null;
+
+function handleDragStart(event, assignmentId) {
+    draggedAssignmentId = assignmentId;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', assignmentId);
+    
+    // 添加拖拽中的视觉效果
+    event.target.classList.add('dragging');
+    
+    // 延迟添加全局拖拽状态，让浏览器先渲染拖拽效果
+    setTimeout(() => {
+        document.body.classList.add('is-dragging');
+    }, 0);
+}
+
+function handleDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    
+    // 高亮目标单元格
+    const cell = event.currentTarget;
+    cell.classList.add('drag-over');
+}
+
+function handleDragLeave(event) {
+    // 移除高亮
+    const cell = event.currentTarget;
+    cell.classList.remove('drag-over');
+}
+
+function handleDrop(event, targetDate, targetShiftId) {
+    event.preventDefault();
+    
+    // 移除高亮
+    const cell = event.currentTarget;
+    cell.classList.remove('drag-over');
+    document.body.classList.remove('is-dragging');
+    
+    const assignmentId = event.dataTransfer.getData('text/plain') || draggedAssignmentId;
+    if (!assignmentId) return;
+    
+    // 查找被拖拽的排班
+    const assignment = appState.assignments.find(a => a.id === assignmentId);
+    if (!assignment) return;
+    
+    // 如果目标位置与原位置相同，不做处理
+    if (assignment.date === targetDate && assignment.shiftId === targetShiftId) {
+        return;
+    }
+    
+    // 检查目标位置是否已有相同员工的排班（避免一天多班）
+    const existingInTarget = appState.assignments.find(
+        a => a.date === targetDate && 
+            a.shiftId === targetShiftId && 
+            a.employeeName === assignment.employeeName &&
+            a.id !== assignmentId
+    );
+    
+    if (existingInTarget) {
+        showToast(`${assignment.employeeName} 在该班次已有排班`, 'warning');
+        return;
+    }
+    
+    // 记录原信息用于历史
+    const shift = appState.getShift(targetShiftId);
+    const oldShift = appState.getShift(assignment.shiftId);
+    
+    // 更新排班
+    assignment.date = targetDate;
+    assignment.shiftId = targetShiftId;
+    
+    // 保存排班
+    appState.saveScheduleToWeek(appState.assignments);
+    
+    // 添加历史记录
+    appState.addHistoryRecord({
+        type: 'move',
+        action: '移动排班',
+        description: `将 ${assignment.employeeName} 从 ${assignment.date}/${oldShift?.name || '未知班次'} 移动到 ${targetDate}/${shift?.name || '未知班次'}`
+    });
+    updateHistoryCount();
+    
+    // 重新渲染
+    renderScheduleGrid();
+    updateReportPanelIfOpen(); // 更新排班报告
+    
+    showToast(`已将 ${assignment.employeeName} 移动到 ${targetDate} ${shift?.name || ''}`, 'success');
+}
+
+// 拖拽结束清理
+document.addEventListener('dragend', () => {
+    document.body.classList.remove('is-dragging');
+    document.querySelectorAll('.assignment-card.dragging').forEach(el => {
+        el.classList.remove('dragging');
+    });
+    document.querySelectorAll('.grid-cell.drag-over').forEach(el => {
+        el.classList.remove('drag-over');
+    });
+    draggedAssignmentId = null;
+});
 
 function showAssignmentDetail(assignmentId) {
     currentAssignmentId = assignmentId;
@@ -2773,10 +3016,16 @@ function initSettingsView() {
     // 加载当前设置
     loadSettings();
     
+    // 初始化门店管理UI
+    initStoreManagementUI();
+    
     // 工时模式切换
     document.getElementById('hoursMode').addEventListener('change', (e) => {
         updateHoursModeDisplay(e.target.value);
     });
+    
+    // 初始化月份限制UI
+    initMonthlyLimitsUI();
     
     // 测试连接
     document.getElementById('testConnection').addEventListener('click', async () => {
@@ -2796,18 +3045,17 @@ function initSettingsView() {
         }
     });
     
-    // 保存设置
+    // 保存排班规则设置（门店信息单独管理）
     document.getElementById('saveSettings').addEventListener('click', () => {
         const settings = {
-            storeName: document.getElementById('storeName').value,
-            openTime: document.getElementById('openTime').value,
-            closeTime: document.getElementById('closeTime').value,
             hoursMode: document.getElementById('hoursMode').value,
             maxWeeklyHours: parseInt(document.getElementById('maxWeeklyHours').value),
             maxPeriodHours: parseInt(document.getElementById('maxPeriodHours').value),
             minRestHours: parseInt(document.getElementById('minRestHours').value),
             maxConsecutiveDays: parseInt(document.getElementById('maxConsecutiveDays').value),
             minRestDays: parseInt(document.getElementById('minRestDays').value),
+            maxShiftsPerMonth: parseInt(document.getElementById('maxShiftsPerMonth').value),
+            monthlyMaxShifts: getMonthlyMaxShiftsFromUI(),
             apiEndpoint: document.getElementById('apiEndpoint').value,
             timeout: parseInt(document.getElementById('timeout').value)
         };
@@ -2815,10 +3063,7 @@ function initSettingsView() {
         appState.updateSettings(settings);
         scheduleAPI.updateConfig();
         
-        // 更新门店名称显示
-        document.querySelector('.store-name').textContent = `🏪 ${settings.storeName}`;
-        
-        showToast('设置已保存', 'success');
+        showToast('排班规则已保存', 'success');
     });
     
     // 重置设置
@@ -2847,23 +3092,296 @@ function updateHoursModeDisplay(mode) {
 
 function loadSettings() {
     const s = appState.settings;
-    document.getElementById('storeName').value = s.storeName;
-    document.getElementById('openTime').value = s.openTime;
-    document.getElementById('closeTime').value = s.closeTime;
+    // 排班规则设置
     document.getElementById('hoursMode').value = s.hoursMode || 'weekly';
     document.getElementById('maxWeeklyHours').value = s.maxWeeklyHours;
     document.getElementById('maxPeriodHours').value = s.maxPeriodHours || 176;
     document.getElementById('minRestHours').value = s.minRestHours;
     document.getElementById('maxConsecutiveDays').value = s.maxConsecutiveDays;
     document.getElementById('minRestDays').value = s.minRestDays;
+    document.getElementById('maxShiftsPerMonth').value = s.maxShiftsPerMonth || 26;
     document.getElementById('apiEndpoint').value = s.apiEndpoint;
     document.getElementById('timeout').value = s.timeout;
     
     // 更新工时模式显示
     updateHoursModeDisplay(s.hoursMode || 'weekly');
     
+    // 加载并渲染月份限制
+    renderMonthlyLimitsList();
+    
+    // 渲染门店标签列表
+    renderStoreTabs();
+    
     // 更新门店名称显示
     document.querySelector('.store-name').textContent = `🏪 ${s.storeName}`;
+}
+
+/* ========================================
+   门店管理 UI
+   ======================================== */
+
+let currentEditStoreId = null;
+
+function initStoreManagementUI() {
+    // 添加新门店按钮
+    document.getElementById('addNewStore').addEventListener('click', () => {
+        showAddStoreForm();
+    });
+    
+    // 保存门店信息按钮
+    document.getElementById('saveStoreInfo').addEventListener('click', () => {
+        saveStoreInfo();
+    });
+    
+    // 删除门店按钮
+    document.getElementById('deleteStore').addEventListener('click', async () => {
+        if (currentEditStoreId) {
+            const confirmed = await showConfirm('删除门店', '确定要删除该门店吗？此操作不可撤销。');
+            if (confirmed) {
+                deleteStoreById(currentEditStoreId);
+            }
+        }
+    });
+    
+    // 初始渲染门店标签
+    renderStoreTabs();
+}
+
+function renderStoreTabs() {
+    const container = document.getElementById('storeTabsHeader');
+    if (!container) return;
+    
+    const stores = appState.getAllStores();
+    
+    container.innerHTML = stores.map(store => `
+        <button type="button" class="store-tab ${store.id === currentEditStoreId ? 'active' : ''}" 
+                data-store-id="${store.id}">
+            ${store.name}
+        </button>
+    `).join('');
+    
+    // 绑定点击事件
+    container.querySelectorAll('.store-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const storeId = tab.dataset.storeId;
+            selectStoreForEdit(storeId);
+        });
+    });
+    
+    // 如果没有选中门店，默认选第一个
+    if (!currentEditStoreId && stores.length > 0) {
+        selectStoreForEdit(stores[0].id);
+    }
+}
+
+function selectStoreForEdit(storeId) {
+    currentEditStoreId = storeId;
+    const store = appState.stores.find(s => s.id === storeId);
+    
+    if (!store) return;
+    
+    // 更新标签激活状态
+    document.querySelectorAll('.store-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.storeId === storeId);
+    });
+    
+    // 填充表单
+    document.getElementById('editStoreId').value = store.id;
+    document.getElementById('storeName').value = store.name || '';
+    document.getElementById('storeCode').value = store.code || '';
+    document.getElementById('storeAddress').value = store.address || '';
+    document.getElementById('storePhone').value = store.phone || '';
+    document.getElementById('storeManager').value = store.manager || '';
+    document.getElementById('openTime').value = store.openTime || '09:00';
+    document.getElementById('closeTime').value = store.closeTime || '22:00';
+    
+    // 显示删除按钮（如果有多个门店）
+    const deleteBtn = document.getElementById('deleteStore');
+    const activeStores = appState.getAllStores();
+    deleteBtn.style.display = activeStores.length > 1 ? 'inline-flex' : 'none';
+}
+
+function showAddStoreForm() {
+    currentEditStoreId = null;
+    
+    // 清空表单
+    document.getElementById('editStoreId').value = '';
+    document.getElementById('storeName').value = '';
+    document.getElementById('storeCode').value = '';
+    document.getElementById('storeAddress').value = '';
+    document.getElementById('storePhone').value = '';
+    document.getElementById('storeManager').value = '';
+    document.getElementById('openTime').value = '09:00';
+    document.getElementById('closeTime').value = '22:00';
+    
+    // 取消所有标签激活状态
+    document.querySelectorAll('.store-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // 隐藏删除按钮
+    document.getElementById('deleteStore').style.display = 'none';
+    
+    showToast('请填写新门店信息', 'info');
+}
+
+function saveStoreInfo() {
+    const storeData = {
+        name: document.getElementById('storeName').value.trim(),
+        code: document.getElementById('storeCode').value.trim(),
+        address: document.getElementById('storeAddress').value.trim(),
+        phone: document.getElementById('storePhone').value.trim(),
+        manager: document.getElementById('storeManager').value.trim(),
+        openTime: document.getElementById('openTime').value,
+        closeTime: document.getElementById('closeTime').value,
+        status: 'active'
+    };
+    
+    if (!storeData.name) {
+        showToast('请输入门店名称', 'warning');
+        return;
+    }
+    
+    if (currentEditStoreId) {
+        // 更新现有门店
+        appState.updateStore(currentEditStoreId, storeData);
+        showToast(`门店 "${storeData.name}" 已更新`, 'success');
+    } else {
+        // 添加新门店
+        const newStore = appState.addStore(storeData);
+        currentEditStoreId = newStore.id;
+        showToast(`门店 "${storeData.name}" 已添加`, 'success');
+    }
+    
+    // 重新渲染门店标签
+    renderStoreTabs();
+    
+    // 如果是当前选中的门店，更新全局门店名称显示
+    if (currentEditStoreId === appState.currentStoreId) {
+        document.querySelector('.store-name').textContent = `🏪 ${storeData.name}`;
+    }
+}
+
+function deleteStoreById(storeId) {
+    const store = appState.stores.find(s => s.id === storeId);
+    if (!store) return;
+    
+    const success = appState.deleteStore(storeId);
+    if (success) {
+        showToast(`门店 "${store.name}" 已删除`, 'info');
+        currentEditStoreId = null;
+        renderStoreTabs();
+    } else {
+        showToast('无法删除当前门店', 'error');
+    }
+}
+
+/* ========================================
+   自定义月份限制 UI
+   ======================================== */
+
+function initMonthlyLimitsUI() {
+    // 生成月份选项（当前年份前后各1年）
+    const monthSelect = document.getElementById('monthlyLimitMonth');
+    if (!monthSelect) return;
+    
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    monthSelect.innerHTML = '';
+    
+    for (let year = currentYear - 1; year <= currentYear + 1; year++) {
+        for (let month = 1; month <= 12; month++) {
+            const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+            const option = document.createElement('option');
+            option.value = monthStr;
+            option.textContent = `${year}年${month}月`;
+            
+            // 默认选中当前月份
+            if (year === currentYear && month === today.getMonth() + 1) {
+                option.selected = true;
+            }
+            
+            monthSelect.appendChild(option);
+        }
+    }
+    
+    // 切换展开/收起
+    document.getElementById('toggleMonthlyLimits').addEventListener('click', () => {
+        const container = document.getElementById('monthlyLimitsContainer');
+        const btn = document.getElementById('toggleMonthlyLimits');
+        if (container.style.display === 'none') {
+            container.style.display = 'block';
+            btn.textContent = '📅 收起';
+        } else {
+            container.style.display = 'none';
+            btn.textContent = '📅 展开';
+        }
+    });
+    
+    // 添加月份限制
+    document.getElementById('addMonthlyLimit').addEventListener('click', () => {
+        const month = document.getElementById('monthlyLimitMonth').value;
+        const days = parseInt(document.getElementById('monthlyLimitDays').value);
+        
+        if (!month || isNaN(days) || days < 1 || days > 31) {
+            showToast('请输入有效的月份和天数', 'warning');
+            return;
+        }
+        
+        // 获取当前设置
+        const monthlyMaxShifts = appState.settings.monthlyMaxShifts || {};
+        monthlyMaxShifts[month] = days;
+        
+        // 更新设置（不保存到localStorage，等用户点击保存）
+        appState.settings.monthlyMaxShifts = monthlyMaxShifts;
+        
+        // 重新渲染列表
+        renderMonthlyLimitsList();
+        
+        showToast(`已添加 ${formatMonthDisplay(month)} 限制: ${days}天`, 'success');
+    });
+}
+
+function renderMonthlyLimitsList() {
+    const listContainer = document.getElementById('monthlyLimitsList');
+    if (!listContainer) return;
+    
+    const monthlyMaxShifts = appState.settings.monthlyMaxShifts || {};
+    
+    // 按月份排序
+    const sortedMonths = Object.keys(monthlyMaxShifts).sort();
+    
+    if (sortedMonths.length === 0) {
+        listContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 13px;">暂无自定义月份限制</span>';
+        return;
+    }
+    
+    listContainer.innerHTML = sortedMonths.map(month => `
+        <div class="monthly-limit-item" data-month="${month}">
+            <span class="month-label">${formatMonthDisplay(month)}</span>
+            <span class="days-value">${monthlyMaxShifts[month]}天</span>
+            <button class="remove-btn" onclick="removeMonthlyLimit('${month}')">✕</button>
+        </div>
+    `).join('');
+}
+
+function removeMonthlyLimit(month) {
+    const monthlyMaxShifts = appState.settings.monthlyMaxShifts || {};
+    delete monthlyMaxShifts[month];
+    appState.settings.monthlyMaxShifts = monthlyMaxShifts;
+    renderMonthlyLimitsList();
+    showToast(`已移除 ${formatMonthDisplay(month)} 的限制`, 'info');
+}
+
+function formatMonthDisplay(monthStr) {
+    // YYYY-MM -> YYYY年M月
+    const [year, month] = monthStr.split('-');
+    return `${year}年${parseInt(month)}月`;
+}
+
+function getMonthlyMaxShiftsFromUI() {
+    // 直接返回当前设置中的 monthlyMaxShifts
+    return appState.settings.monthlyMaxShifts || {};
 }
 
 /* ========================================
@@ -2958,51 +3476,49 @@ function calculateUnfilledRequirements(weekDates, assignments) {
     const isAllMode = appState.isAllStoresMode();
     const stores = isAllMode ? appState.getAllStores() : [appState.getCurrentStore()].filter(Boolean);
     
-    // 遍历每天、每个班次
-    weekDates.forEach(dateObj => {
-        const dateStr = formatDateStr(dateObj);
-        
-        appState.shifts.forEach(shift => {
-            // 获取该日期该班次的所有排班（不区分门店）
-            const shiftAssignments = assignments.filter(
-                a => a.date === dateStr && a.shiftId === shift.id
-            );
+    // 按门店分别统计需求和分配，这样可以显示具体门店的缺口
+    stores.forEach(store => {
+        weekDates.forEach(dateObj => {
+            const dateStr = formatDateStr(dateObj);
             
-            // 统计每个岗位已分配人数
-            const positionAssigned = {};
-            shiftAssignments.forEach(a => {
-                const pos = a.position || '未知';
-                positionAssigned[pos] = (positionAssigned[pos] || 0) + 1;
-            });
-            
-            // 汇总所有门店该日期该班次的需求
-            const totalReqByPosition = {};
-            stores.forEach(store => {
+            appState.shifts.forEach(shift => {
+                // 获取该门店该日期该班次的需求
                 const dayReqs = appState.getRequirementsForDate(dateObj, store.id);
                 const shiftReqs = dayReqs[shift.id] || {};
-                Object.entries(shiftReqs).forEach(([pos, count]) => {
-                    totalReqByPosition[pos] = (totalReqByPosition[pos] || 0) + count;
+                
+                // 获取该门店该日期该班次的排班（按工作门店）
+                const storeShiftAssignments = assignments.filter(
+                    a => a.date === dateStr && 
+                         a.shiftId === shift.id && 
+                         (a.workStoreId === store.id || (!a.workStoreId && a.storeId === store.id))
+                );
+                
+                // 统计该门店每个岗位已分配人数
+                const positionAssigned = {};
+                storeShiftAssignments.forEach(a => {
+                    const pos = a.position || '未知';
+                    positionAssigned[pos] = (positionAssigned[pos] || 0) + 1;
                 });
-            });
-            
-            // 计算每个岗位的缺口
-            Object.entries(totalReqByPosition).forEach(([pos, required]) => {
-                if (required > 0) {
-                    const assigned = positionAssigned[pos] || 0;
-                    if (assigned < required) {
-                        unfilled.push({
-                            date: dateStr,
-                            shiftId: shift.id,
-                            shiftName: shift.name,
-                            position: pos,
-                            required,
-                            assigned,
-                            storeId: '',
-                            storeName: '全部门店',
-                            reason: assigned === 0 ? '无可用员工' : '员工不足'
-                        });
+                
+                // 计算每个岗位的缺口
+                Object.entries(shiftReqs).forEach(([pos, required]) => {
+                    if (required > 0) {
+                        const assigned = positionAssigned[pos] || 0;
+                        if (assigned < required) {
+                            unfilled.push({
+                                date: dateStr,
+                                shiftId: shift.id,
+                                shiftName: shift.name,
+                                position: pos,
+                                required,
+                                assigned,
+                                storeId: store.id,
+                                storeName: store.name,
+                                reason: assigned === 0 ? '无可用员工' : '员工不足'
+                            });
+                        }
                     }
-                }
+                });
             });
         });
     });
@@ -3011,70 +3527,147 @@ function calculateUnfilledRequirements(weekDates, assignments) {
 }
 
 /**
- * 计算每个岗位的缺口
+ * 计算每个岗位的缺口（带门店信息）
  * @param {Date} date - 日期
  * @param {string} shiftId - 班次ID
  * @param {Array} cellAssignments - 该班次已分配的排班
  * @param {string} filterStoreId - 门店筛选ID
  * @param {boolean} isAllMode - 是否全部门店模式
- * @returns {Array} 缺口数组，如 [{position: '厨师', gap: 1}, {position: '服务员', gap: 2}]
+ * @returns {Array} 缺口数组，如 [{position: '厨师', gap: 1, storeId: 'store-001', storeName: '总店'}]
  */
 function calculatePositionGaps(date, shiftId, cellAssignments, filterStoreId, isAllMode) {
     const gaps = [];
+    const positionOrder = ['厨师', '服务员', '收银员'];
     
-    // 收集所有需求
-    const positionReqs = {};
-    
+    // 确定要统计的门店列表
+    let storesToCheck = [];
     if (filterStoreId && filterStoreId !== 'all') {
-        // 有门店筛选时，只计算该门店的需求
-        const dayReqs = appState.getRequirementsForDate(date, filterStoreId);
-        const shiftReqs = dayReqs[shiftId] || {};
-        Object.entries(shiftReqs).forEach(([pos, count]) => {
-            positionReqs[pos] = (positionReqs[pos] || 0) + count;
-        });
+        const store = appState.stores.find(s => s.id === filterStoreId);
+        if (store) storesToCheck = [store];
     } else if (isAllMode) {
-        // 全部门店模式，汇总所有门店的需求
-        appState.getAllStores().forEach(store => {
-            const dayReqs = appState.getRequirementsForDate(date, store.id);
-            const shiftReqs = dayReqs[shiftId] || {};
-            Object.entries(shiftReqs).forEach(([pos, count]) => {
-                positionReqs[pos] = (positionReqs[pos] || 0) + count;
-            });
-        });
+        storesToCheck = appState.getAllStores();
     } else {
-        // 单门店模式
-        const dayReqs = appState.getRequirementsForDate(date);
-        const shiftReqs = dayReqs[shiftId] || {};
-        Object.entries(shiftReqs).forEach(([pos, count]) => {
-            positionReqs[pos] = (positionReqs[pos] || 0) + count;
-        });
+        const currentStore = appState.getCurrentStore();
+        if (currentStore) storesToCheck = [currentStore];
     }
     
-    // 统计每个岗位已分配人数
-    const positionAssigned = {};
-    cellAssignments.forEach(a => {
-        const pos = a.position || '未知';
-        positionAssigned[pos] = (positionAssigned[pos] || 0) + 1;
+    // 按门店分别计算缺口
+    storesToCheck.forEach(store => {
+        const dayReqs = appState.getRequirementsForDate(date, store.id);
+        const shiftReqs = dayReqs[shiftId] || {};
+        
+        // 统计该门店该班次已分配人数（包含跨店工作的员工）
+        const positionAssigned = {};
+        cellAssignments.forEach(a => {
+            // 在多门店模式下，考虑工作门店 (workStoreId)
+            const workStore = a.workStoreId || a.storeId;
+            if (workStore === store.id) {
+                const pos = a.position || '未知';
+                positionAssigned[pos] = (positionAssigned[pos] || 0) + 1;
+            }
+        });
+        
+        // 计算每个岗位的缺口
+        Object.entries(shiftReqs).forEach(([pos, required]) => {
+            if (required > 0) {
+                const assigned = positionAssigned[pos] || 0;
+                const gap = required - assigned;
+                if (gap > 0) {
+                    gaps.push({ 
+                        position: pos, 
+                        gap: gap, 
+                        storeId: store.id, 
+                        storeName: store.name,
+                        storeCode: store.code || store.name.substring(0, 2)
+                    });
+                }
+            }
+        });
     });
     
-    // 计算缺口（按岗位优先级排序：厨师 > 服务员 > 其他）
-    const positionOrder = ['厨师', '服务员', '收银员'];
-    const sortedPositions = Object.keys(positionReqs).sort((a, b) => {
-        const aIdx = positionOrder.indexOf(a);
-        const bIdx = positionOrder.indexOf(b);
+    // 按门店和岗位优先级排序
+    gaps.sort((a, b) => {
+        // 先按门店
+        if (a.storeId !== b.storeId) {
+            return a.storeName.localeCompare(b.storeName);
+        }
+        // 再按岗位优先级
+        const aIdx = positionOrder.indexOf(a.position);
+        const bIdx = positionOrder.indexOf(b.position);
         return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
     });
     
-    sortedPositions.forEach(pos => {
-        const required = positionReqs[pos] || 0;
-        const assigned = positionAssigned[pos] || 0;
-        const gap = required - assigned;
-        if (gap > 0) {
-            gaps.push({ position: pos, gap: gap });
-        }
+    return gaps;
+}
+
+/**
+ * 计算超编情况（带门店信息）
+ * @returns {Array} 超编数组，如 [{position: '厨师', over: 1, storeId: 'store-001', storeName: '总店', employeeIds: ['emp1']}]
+ */
+function calculatePositionOverstaffing(date, shiftId, cellAssignments, filterStoreId, isAllMode) {
+    const overstaffing = [];
+    const positionOrder = ['厨师', '服务员', '收银员'];
+    
+    // 确定要统计的门店列表
+    let storesToCheck = [];
+    if (filterStoreId && filterStoreId !== 'all') {
+        const store = appState.stores.find(s => s.id === filterStoreId);
+        if (store) storesToCheck = [store];
+    } else if (isAllMode) {
+        storesToCheck = appState.getAllStores();
+    } else {
+        const currentStore = appState.getCurrentStore();
+        if (currentStore) storesToCheck = [currentStore];
+    }
+    
+    // 按门店分别计算超编
+    storesToCheck.forEach(store => {
+        const dayReqs = appState.getRequirementsForDate(date, store.id);
+        const shiftReqs = dayReqs[shiftId] || {};
+        
+        // 统计该门店该班次已分配人数和具体分配的ID（包含跨店工作的员工）
+        const positionAssigned = {};
+        const positionAssignmentIds = {}; // 存储每个岗位的排班ID
+        cellAssignments.forEach(a => {
+            const workStore = a.workStoreId || a.storeId;
+            if (workStore === store.id) {
+                const pos = a.position || '未知';
+                positionAssigned[pos] = (positionAssigned[pos] || 0) + 1;
+                if (!positionAssignmentIds[pos]) positionAssignmentIds[pos] = [];
+                positionAssignmentIds[pos].push(a.id);
+            }
+        });
+        
+        // 计算每个岗位的超编（包括没有需求但有分配的情况）
+        const allPositions = new Set([...Object.keys(shiftReqs), ...Object.keys(positionAssigned)]);
+        allPositions.forEach(pos => {
+            const required = shiftReqs[pos] || 0;
+            const assigned = positionAssigned[pos] || 0;
+            const over = assigned - required;
+            if (over > 0) {
+                overstaffing.push({ 
+                    position: pos, 
+                    over: over, 
+                    storeId: store.id, 
+                    storeName: store.name,
+                    storeCode: store.code || store.name.substring(0, 2),
+                    assignmentIds: positionAssignmentIds[pos] || [] // 用于移除操作
+                });
+            }
+        });
     });
     
-    return gaps;
+    // 按门店和岗位优先级排序
+    overstaffing.sort((a, b) => {
+        if (a.storeId !== b.storeId) {
+            return a.storeName.localeCompare(b.storeName);
+        }
+        const aIdx = positionOrder.indexOf(a.position);
+        const bIdx = positionOrder.indexOf(b.position);
+        return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
+    });
+    
+    return overstaffing;
 }
 
 /**
@@ -3138,8 +3731,9 @@ function calculateSatisfactionRate(weekDates, assignments) {
         });
     });
     
-    console.log(`📊 满足率计算: 需求 ${totalRequired}, 已分配 ${totalAssigned}, 满足率 ${totalRequired > 0 ? Math.round((totalAssigned / totalRequired) * 100) : 100}%`);
-    return totalRequired > 0 ? Math.round((totalAssigned / totalRequired) * 100) : 100;
+    // 满足率使用向下取整，避免99.x%被误显示为100%
+    console.log(`📊 满足率计算: 需求 ${totalRequired}, 已分配 ${totalAssigned}, 满足率 ${totalRequired > 0 ? Math.floor((totalAssigned / totalRequired) * 100) : 100}%`);
+    return totalRequired > 0 ? Math.floor((totalAssigned / totalRequired) * 100) : 100;
 }
 
 /**
@@ -3170,29 +3764,35 @@ function calculateSatisfactionRateForStore(weekDates, assignments, storeId) {
         storesToCheck = store ? [store] : [];
     }
     
+    // 按日期+班次+岗位汇总需求（避免重复计数）
     weekDates.forEach(date => {
         const dateStr = formatDate(date);
         
-        storesToCheck.forEach(store => {
-            appState.shifts.forEach(shift => {
-                allPositions.forEach(pos => {
-                    const required = getRequiredCount(date, shift.id, pos, store.id);
-                    if (required > 0) {
-                        totalRequired += required;
-                        // 统计该日期班次岗位已分配人数（不限制门店，因为跨店员工也算）
-                        const matchingAssignments = assignments.filter(a => 
-                            a.date === dateStr && 
-                            a.shiftId === shift.id && 
-                            a.position === pos
-                        );
-                        totalAssigned += Math.min(matchingAssignments.length, required);
-                    }
+        appState.shifts.forEach(shift => {
+            allPositions.forEach(pos => {
+                // 汇总所有门店该日期该班次该岗位的需求
+                let totalReqForSlot = 0;
+                storesToCheck.forEach(store => {
+                    totalReqForSlot += getRequiredCount(date, shift.id, pos, store.id);
                 });
+                
+                if (totalReqForSlot > 0) {
+                    totalRequired += totalReqForSlot;
+                    // 统计该日期班次岗位已分配人数（不重复计算）
+                    const matchingAssignments = assignments.filter(a => 
+                        a.date === dateStr && 
+                        a.shiftId === shift.id && 
+                        a.position === pos
+                    );
+                    // 实际分配不能超过需求
+                    totalAssigned += Math.min(matchingAssignments.length, totalReqForSlot);
+                }
             });
         });
     });
     
-    return totalRequired > 0 ? Math.round((totalAssigned / totalRequired) * 100) : 100;
+    // 满足率使用向下取整，避免99.x%被误显示为100%
+    return totalRequired > 0 ? Math.floor((totalAssigned / totalRequired) * 100) : 100;
 }
 
 /**
@@ -3354,19 +3954,169 @@ function openManualAssign(date, shiftId) {
         .filter(a => a.date === date)
         .map(a => a.employeeName);
     
+    // 统计当前周期每个员工的已排班次数
+    const employeeShiftCounts = getEmployeeShiftCountsInPeriod();
+    
     appState.employees
         .filter(e => e.status === 'active')
         .forEach(emp => {
             const isAssigned = assignedEmployees.includes(emp.name);
+            const shiftCount = employeeShiftCounts[emp.name] || 0;
             const opt = document.createElement('option');
             opt.value = emp.id;
-            opt.textContent = `${formatEmployeeName(emp)} (${emp.position})${isAssigned ? ' ⚠️' : ''}`;
+            opt.textContent = `${formatEmployeeName(emp)} (${emp.position}) 已排${shiftCount}班${isAssigned ? ' ⚠️今日已排' : ''}`;
             opt.dataset.position = emp.position;
             employeeSelect.appendChild(opt);
         });
     
     document.getElementById('employeeConflictWarning').style.display = 'none';
     openModal('manualAssignModal');
+}
+
+/**
+ * 获取当前周期每个员工的已排班次数
+ */
+function getEmployeeShiftCountsInPeriod() {
+    const counts = {};
+    const weekDates = appState.getWeekDates();
+    const startDate = formatDate(weekDates[0]);
+    const endDate = formatDate(weekDates[weekDates.length - 1]);
+    
+    appState.assignments.forEach(a => {
+        if (a.date >= startDate && a.date <= endDate) {
+            counts[a.employeeName] = (counts[a.employeeName] || 0) + 1;
+        }
+    });
+    
+    return counts;
+}
+
+/**
+ * 打开手动排班窗口，预选指定门店和岗位（用于缺编快速添加）
+ */
+function openManualAssignWithStore(date, shiftId, storeId, position) {
+    const shift = appState.getShift(shiftId);
+    const store = appState.stores.find(s => s.id === storeId);
+    
+    document.getElementById('manualDate').value = date;
+    document.getElementById('manualShiftId').value = shiftId;
+    
+    // 显示门店信息
+    const storeInfo = store ? ` [${store.name}]` : '';
+    document.getElementById('manualDateDisplay').textContent = `${date} ${getDayName(date)}${storeInfo}`;
+    document.getElementById('manualShiftDisplay').textContent = shift ? `${shift.name} (${shift.startTime}-${shift.endTime})` : shiftId;
+    
+    // 存储选定的门店ID（用于添加排班时）
+    document.getElementById('manualShiftId').dataset.storeId = storeId;
+    
+    // 填充可用员工列表，优先显示该岗位的员工
+    const employeeSelect = document.getElementById('manualEmployee');
+    employeeSelect.innerHTML = '<option value="">-- 请选择员工 --</option>';
+    
+    // 获取当天已排班的员工
+    const assignedEmployees = appState.assignments
+        .filter(a => a.date === date)
+        .map(a => a.employeeName);
+    
+    // 统计当前周期每个员工的已排班次数
+    const employeeShiftCounts = getEmployeeShiftCountsInPeriod();
+    
+    // 分组：本岗位员工优先，同门店员工次优先
+    const activeEmployees = appState.employees.filter(e => e.status === 'active');
+    const samePositionSameStore = [];
+    const samePositionOtherStore = [];
+    const otherPositionSameStore = [];
+    const others = [];
+    
+    activeEmployees.forEach(emp => {
+        const isSamePosition = emp.position === position;
+        const isSameStore = emp.storeId === storeId;
+        
+        if (isSamePosition && isSameStore) {
+            samePositionSameStore.push(emp);
+        } else if (isSamePosition) {
+            samePositionOtherStore.push(emp);
+        } else if (isSameStore) {
+            otherPositionSameStore.push(emp);
+        } else {
+            others.push(emp);
+        }
+    });
+    
+    // 添加分组选项
+    const addGroup = (employees, label) => {
+        if (employees.length === 0) return;
+        const group = document.createElement('optgroup');
+        group.label = label;
+        employees.forEach(emp => {
+            const isAssigned = assignedEmployees.includes(emp.name);
+            const empStore = appState.stores.find(s => s.id === emp.storeId);
+            const storeLabel = empStore && emp.storeId !== storeId ? ` [${empStore.name}→跨店]` : '';
+            const shiftCount = employeeShiftCounts[emp.name] || 0;
+            const opt = document.createElement('option');
+            opt.value = emp.id;
+            opt.textContent = `${formatEmployeeName(emp)} (${emp.position}) 已排${shiftCount}班${storeLabel}${isAssigned ? ' ⚠️今日已排' : ''}`;
+            opt.dataset.position = emp.position;
+            opt.dataset.storeId = emp.storeId;
+            group.appendChild(opt);
+        });
+        employeeSelect.appendChild(group);
+    };
+    
+    addGroup(samePositionSameStore, `✅ ${position} - 本门店`);
+    addGroup(samePositionOtherStore, `📤 ${position} - 可跨店`);
+    addGroup(otherPositionSameStore, `🔄 其他岗位 - 本门店`);
+    addGroup(others, `📋 其他`);
+    
+    // 预设岗位
+    document.getElementById('manualPosition').value = position;
+    
+    document.getElementById('employeeConflictWarning').style.display = 'none';
+    openModal('manualAssignModal');
+}
+
+/**
+ * 确认并移除超编的排班
+ */
+function confirmRemoveOverstaffing(assignmentIds, storeName, position, overCount) {
+    if (!assignmentIds || assignmentIds.length === 0) {
+        showToast('没有可移除的排班', 'warning');
+        return;
+    }
+    
+    // 获取要移除的排班详情
+    const toRemove = assignmentIds.slice(-overCount); // 只移除多余的数量
+    const removeDetails = toRemove.map(id => {
+        const a = appState.assignments.find(x => x.id === id);
+        return a ? a.employeeName : '未知';
+    }).join('、');
+    
+    const confirmMsg = `${storeName} ${position} 超编 ${overCount} 人\n\n将移除以下排班：\n${removeDetails}\n\n确认移除吗？`;
+    
+    if (confirm(confirmMsg)) {
+        // 移除排班
+        toRemove.forEach(id => {
+            const idx = appState.assignments.findIndex(a => a.id === id);
+            if (idx !== -1) {
+                const removed = appState.assignments.splice(idx, 1)[0];
+                // 记录历史
+                appState.addHistoryRecord({
+                    type: 'delete',
+                    action: '移除超编排班',
+                    employeeName: removed.employeeName,
+                    date: removed.date,
+                    shiftName: removed.shiftName,
+                    shiftId: removed.shiftId,
+                    position: removed.position
+                });
+            }
+        });
+        
+        showToast(`已移除 ${toRemove.length} 个超编排班`, 'success');
+        renderScheduleGrid();
+        renderEmployeeGrid();
+        updateReportPanelIfOpen(); // 更新排班报告
+    }
 }
 
 // 检查员工冲突
@@ -3397,6 +4147,7 @@ function confirmManualAssign() {
     const date = document.getElementById('manualDate').value;
     const shiftId = document.getElementById('manualShiftId').value;
     const position = document.getElementById('manualPosition').value;
+    const targetStoreId = document.getElementById('manualShiftId').dataset.storeId; // 目标门店（缺编快速添加时设置）
     
     if (!empId) {
         showToast('请选择员工', 'warning');
@@ -3411,6 +4162,15 @@ function confirmManualAssign() {
         return;
     }
     
+    // 判断是否为跨店排班
+    const empStoreId = emp.storeId || appState.currentStoreId;
+    const workStoreId = targetStoreId || empStoreId;
+    const isCrossStore = workStoreId !== empStoreId;
+    
+    // 获取门店名称
+    const empStore = appState.stores.find(s => s.id === empStoreId);
+    const workStore = appState.stores.find(s => s.id === workStoreId);
+    
     // 创建新的排班
     const newAssignment = {
         id: generateUUID(),
@@ -3424,12 +4184,17 @@ function confirmManualAssign() {
         position: position,
         hours: shift.hours,
         score: null, // 手动添加的不计算评分
-        isManual: true
+        isManual: true,
+        storeId: empStoreId,          // 员工所属门店
+        storeName: empStore?.name || '',
+        workStoreId: workStoreId,     // 实际工作门店
+        workStoreName: workStore?.name || ''
     };
     
     appState.assignments.push(newAssignment);
     
     // 记录历史
+    const crossStoreInfo = isCrossStore ? ` (跨店: ${empStore?.name || ''}→${workStore?.name || ''})` : '';
     appState.addHistoryRecord({
         type: 'add',
         action: '添加排班',
@@ -3438,14 +4203,22 @@ function confirmManualAssign() {
         shiftName: shift.name,
         shiftId: shiftId,
         position: position,
-        description: `添加 ${formatEmployeeName(emp)} 到 ${date} ${shift.name}`
+        description: `添加 ${formatEmployeeName(emp)} 到 ${date} ${shift.name}${crossStoreInfo}`
     });
+    
+    // 清除目标门店数据
+    delete document.getElementById('manualShiftId').dataset.storeId;
     
     closeModal('manualAssignModal');
     renderScheduleGrid();
     renderEmployeeGrid();
     renderShiftHistory(); // 更新历史面板
-    showToast(`已添加 ${formatEmployeeName(emp)} 到 ${date} ${shift.name}`, 'success');
+    updateReportPanelIfOpen(); // 更新排班报告
+    
+    const toastMsg = isCrossStore 
+        ? `已添加 ${formatEmployeeName(emp)} 到 ${date} ${shift.name} [跨店]`
+        : `已添加 ${formatEmployeeName(emp)} 到 ${date} ${shift.name}`;
+    showToast(toastMsg, 'success');
 }
 
 // 移除排班
@@ -3473,6 +4246,7 @@ function removeAssignment(assignmentId) {
         renderScheduleGrid();
         renderEmployeeGrid();
         renderShiftHistory(); // 更新历史面板
+        updateReportPanelIfOpen(); // 更新排班报告
         showToast(`已移除 ${formatEmployeeNameByName(assignment.employeeName)} 的排班`, 'info');
     }
 }
@@ -3593,6 +4367,7 @@ function confirmSwap() {
     renderScheduleGrid();
     renderEmployeeGrid();
     renderShiftHistory(); // 更新历史面板
+    updateReportPanelIfOpen(); // 更新排班报告
     showToast(`已完成 ${formatEmployeeNameByName(fromAssignment.employeeName)} 和 ${formatEmployeeNameByName(toAssignment.employeeName)} 的换班`, 'success');
 }
 
@@ -4203,10 +4978,32 @@ function toggleReportPanel() {
         panel.classList.remove('active');
         overlay.classList.remove('active');
     } else {
+        // 打开时先重新计算所有数据，确保使用最新的排班信息
+        recalculateUnfilledRequirements();
         renderReportPanel();
         panel.classList.add('active');
         overlay.classList.add('active');
     }
+}
+
+/**
+ * 更新排班报告（如果面板已打开）
+ */
+function updateReportPanelIfOpen() {
+    const panel = document.getElementById('reportPanel');
+    if (panel && panel.classList.contains('active')) {
+        // 重新计算未满足需求
+        recalculateUnfilledRequirements();
+        renderReportPanel();
+    }
+}
+
+/**
+ * 重新计算未满足需求（手工调整后需要调用）
+ */
+function recalculateUnfilledRequirements() {
+    const weekDates = appState.getWeekDates();
+    appState.unfilledRequirements = calculateUnfilledRequirements(weekDates, appState.assignments);
 }
 
 function renderReportPanel() {
@@ -4523,7 +5320,7 @@ const DOUBAO_API_CONFIG = {
     model: 'doubao-seed-1-6-251015'
 };
 
-// 生成 AI 建议
+// 生成 AI 建议（流式输出）
 async function generateAIAdvice() {
     const container = document.getElementById('aiAdviceContent');
     if (!container) return;
@@ -4535,11 +5332,8 @@ async function generateAIAdvice() {
         // 准备排班数据摘要
         const reportData = prepareReportDataForAI();
         
-        // 调用豆包 AI API
-        const aiResponse = await callDoubaoAI(reportData);
-        
-        // 渲染 AI 建议
-        renderDoubaoAIAdvice(container, aiResponse);
+        // 调用豆包 AI API（流式）
+        await callDoubaoAIStream(reportData, container);
     } catch (error) {
         console.error('AI 建议生成失败:', error);
         // 失败时使用本地规则分析
@@ -4561,24 +5355,22 @@ function prepareReportDataForAI() {
     const hardViolations = violations.filter(v => v.type === 'hard');
     const softViolations = violations.filter(v => v.type === 'soft');
     
-    // 计算员工工作量 - 支持多种ID格式匹配
-    const employeeShiftCounts = {};
+    // 计算员工工作量 - 通过员工姓名匹配（最可靠的方式）
+    const employeeShiftCountsByName = {};
     assignments.forEach(a => {
-        // 尝试多种ID格式
-        const empId = a.employeeId || a.employee_id || a.empId;
-        if (empId) {
-            employeeShiftCounts[empId] = (employeeShiftCounts[empId] || 0) + 1;
-            // 同时用字符串格式存储
-            employeeShiftCounts[String(empId)] = (employeeShiftCounts[String(empId)] || 0) + 1;
+        const empName = a.employeeName || a.employee_name;
+        if (empName) {
+            employeeShiftCountsByName[empName] = (employeeShiftCountsByName[empName] || 0) + 1;
         }
     });
     
-    // 员工工作量统计 - 尝试多种ID格式匹配
+    // 员工工作量统计 - 通过姓名匹配
     const employeeWorkload = employees.map(e => {
-        const shifts = employeeShiftCounts[e.id] || employeeShiftCounts[String(e.id)] || 0;
+        const shifts = employeeShiftCountsByName[e.name] || 0;
         return {
             name: e.name,
             position: e.position,
+            storeId: e.storeId,
             shifts: shifts
         };
     }).sort((a, b) => b.shifts - a.shifts);
@@ -4647,31 +5439,57 @@ function prepareReportDataForAI() {
     };
 }
 
-// 调用豆包 AI API
-async function callDoubaoAI(reportData) {
-    const prompt = `你是一个专业的餐饮行业排班顾问。请根据以下排班报告数据，给出专业、具体、可操作的建议。
+// 构建AI提示词
+function buildAIPrompt(reportData) {
+    // 计算利用率相关数据
+    const periodDays = appState.schedulePeriod === 'month' 
+        ? new Date(new Date(appState.currentWeekStart).getFullYear(), new Date(appState.currentWeekStart).getMonth() + 1, 0).getDate()
+        : (appState.schedulePeriod || 7);
+    const maxHoursPerWeek = appState.settings?.maxWeeklyHours || 44;
+    const avgShiftHours = 5;
+    const maxShiftsPerPersonPerWeek = Math.floor(maxHoursPerWeek / avgShiftHours);
+    const weeks = Math.ceil(periodDays / 7);
+    const maxShiftsPerPerson = maxShiftsPerPersonPerWeek * weeks;
+    const theoreticalMaxShifts = reportData.summary.totalEmployees * maxShiftsPerPerson;
+    const utilizationRate = theoreticalMaxShifts > 0 ? Math.round((reportData.summary.totalShifts / theoreticalMaxShifts) * 100) : 0;
+    
+    // 计算岗位分布
+    const positionStats = {};
+    reportData.employeeWorkload.forEach(e => {
+        if (!positionStats[e.position]) {
+            positionStats[e.position] = { count: 0, totalShifts: 0, employees: [] };
+        }
+        positionStats[e.position].count++;
+        positionStats[e.position].totalShifts += e.shifts;
+        positionStats[e.position].employees.push({ name: e.name, shifts: e.shifts });
+    });
+    
+    const positionSummary = Object.entries(positionStats).map(([pos, stats]) => {
+        const avgShifts = stats.count > 0 ? (stats.totalShifts / stats.count).toFixed(1) : 0;
+        const maxPerPerson = maxShiftsPerPerson;
+        const posUtilization = maxPerPerson > 0 ? Math.round((avgShifts / maxPerPerson) * 100) : 0;
+        return `- ${pos}: ${stats.count}人，共${stats.totalShifts}班，人均${avgShifts}班（岗位利用率${posUtilization}%）`;
+    }).join('\n');
+    
+    return `你是一个专业的餐饮行业排班顾问。请根据以下排班报告数据，**重点分析人员利用率**，给出如何在满足所有约束的前提下提升人员利用率的建议。
 
 ## 排班报告数据
 
 ### 概览
+- 排班周期: ${periodDays}天
 - 总班次: ${reportData.summary.totalShifts}
 - 满足率: ${reportData.summary.satisfactionRate}%
 - 在职员工数: ${reportData.summary.totalEmployees}
+- 理论最大产能: ${theoreticalMaxShifts}班次（每人最多${maxShiftsPerPerson}班/周期）
+- **人员利用率: ${utilizationRate}%**
 - 硬约束违规: ${reportData.summary.hardViolationsCount} 条
 - 软约束违规: ${reportData.summary.softViolationsCount} 条
-- 未满足需求: ${reportData.summary.unfilledCount} 条
 
-### 硬约束违规明细
-${reportData.hardViolations.length > 0 ? reportData.hardViolations.map(v => `- [${v.type}] ${v.message}`).join('\n') : '无'}
-
-### 软约束违规明细
-${reportData.softViolations.length > 0 ? reportData.softViolations.map(v => `- [${v.type}] ${v.message}`).join('\n') : '无'}
-
-### 未满足需求
-${reportData.unfilledRequirements.length > 0 ? reportData.unfilledRequirements.map(r => `- ${r.date} ${r.shift} ${r.position}: 需${r.required}人，已排${r.assigned}人`).join('\n') : '无'}
+### 岗位分布与利用率
+${positionSummary}
 
 ### 员工工作量（按班次排序）
-${reportData.employeeWorkload.map(e => `- ${e.name}(${e.position}): ${e.shifts}班`).join('\n')}
+${reportData.employeeWorkload.map(e => `- ${e.name}(${e.position}): ${e.shifts}班/${maxShiftsPerPerson}班`).join('\n')}
 
 ### 工作量分布诊断
 - 有班次的员工: ${reportData.diagnostics.activeCount}人
@@ -4681,16 +5499,174 @@ ${reportData.employeeWorkload.map(e => `- ${e.name}(${e.position}): ${e.shifts}�
 - 班次差异: ${reportData.diagnostics.maxShifts - reportData.diagnostics.minShifts}班
 ${reportData.diagnostics.positionMismatch ? `- 岗位不匹配: ${reportData.diagnostics.positionMismatch}` : ''}
 
+### 硬约束违规明细
+${reportData.hardViolations.length > 0 ? reportData.hardViolations.map(v => `- [${v.type}] ${v.message}`).join('\n') : '无'}
+
+### 软约束违规明细
+${reportData.softViolations.length > 0 ? reportData.softViolations.map(v => `- [${v.type}] ${v.message}`).join('\n') : '无'}
+
 ## 请给出建议
 
-请从以下几个方面给出建议（使用markdown格式）：
-1. **总体评价**：对当前排班状况的整体评估
-2. **问题原因分析**：分析为什么会出现工作量分配不均（如"忙的忙死，闲的闲死"）的情况，可能的原因包括：员工技能/岗位不匹配、可用时间设置问题、约束冲突等
-3. **紧急问题**：需要立即处理的问题（如有）
-4. **优化建议**：如何改善当前排班，包括短期和长期措施
-5. **人员配置建议**：是否需要调整人员配置或培训
+请**聚焦人员利用率**，给出简洁建议（限500字以内）：
 
-请保持建议简洁实用，重点分析问题根因。`;
+1. **利用率评估**（1-2句话）：当前${utilizationRate}%利用率是否健康（健康区间70-85%）
+
+2. **核心问题**（2-3点）：
+   - 利用率过低/过高的主要原因
+   - 哪个岗位拖后腿
+
+3. **优化建议**（最多3条，每条1句话）：
+   - 最需要做的一件事
+   - 人员调整方向
+   - 预期效果
+
+**要求：观点明确，结论清晰，直接给结论不要铺垫，不要重复总结，不要输出"结束"等无关内容。**`;
+}
+
+// 调用豆包 AI API（流式输出，10分钟超时）
+async function callDoubaoAIStream(reportData, container) {
+    const prompt = buildAIPrompt(reportData);
+    
+    // 创建AbortController用于超时控制
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        console.warn('AI请求超时');
+        controller.abort();
+    }, 10 * 60 * 1000); // 10分钟超时
+    
+    try {
+        const response = await fetch(DOUBAO_API_CONFIG.url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${DOUBAO_API_CONFIG.apiKey}`
+            },
+            body: JSON.stringify({
+                model: DOUBAO_API_CONFIG.model,
+                max_completion_tokens: 4096,  // 增加到4096以避免输出被截断
+                stream: true,  // 启用流式输出
+                messages: [
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ]
+            }),
+            signal: controller.signal
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API 请求失败: ${response.status}`);
+        }
+        
+        // 初始化容器
+        container.innerHTML = '<div class="ai-doubao-response ai-streaming"><p></p></div>';
+        const contentEl = container.querySelector('p');
+        let fullContent = '';
+        let buffer = '';  // 用于处理跨chunk的数据
+        
+        // 流式读取响应
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+                console.log('流式读取完成');
+                break;
+            }
+            
+            const chunk = decoder.decode(value, { stream: true });
+            buffer += chunk;
+            
+            // 按行处理，处理可能的不完整行
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';  // 保留最后一个可能不完整的行
+            
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) continue;
+                
+                if (trimmedLine.startsWith('data: ')) {
+                    const data = trimmedLine.slice(6).trim();
+                    if (data === '[DONE]') {
+                        console.log('收到[DONE]信号');
+                        continue;
+                    }
+                    
+                    try {
+                        const json = JSON.parse(data);
+                        const content = json.choices?.[0]?.delta?.content || '';
+                        const finishReason = json.choices?.[0]?.finish_reason;
+                        
+                        if (content) {
+                            fullContent += content;
+                            // 实时渲染markdown（简化处理）
+                            contentEl.innerHTML = renderMarkdownSimple(fullContent);
+                            // 滚动到底部
+                            container.scrollTop = container.scrollHeight;
+                        }
+                        
+                        // 检查是否因为长度限制而结束
+                        if (finishReason === 'length') {
+                            console.warn('AI输出因长度限制被截断');
+                            fullContent += '\n\n⚠️ (内容较长，已达到输出上限)';
+                        }
+                    } catch (e) {
+                        // 忽略解析错误，但记录日志
+                        console.debug('JSON解析错误:', e.message, '数据:', data.substring(0, 100));
+                    }
+                }
+            }
+        }
+        
+        // 处理缓冲区中剩余的数据
+        if (buffer.trim() && buffer.trim().startsWith('data: ')) {
+            const data = buffer.trim().slice(6).trim();
+            if (data !== '[DONE]') {
+                try {
+                    const json = JSON.parse(data);
+                    const content = json.choices?.[0]?.delta?.content || '';
+                    if (content) {
+                        fullContent += content;
+                    }
+                } catch (e) {
+                    // 忽略
+                }
+            }
+        }
+        
+        // 流式完成后，做最终渲染
+        container.innerHTML = '';
+        renderDoubaoAIAdvice(container, fullContent);
+        container.querySelector('.ai-doubao-response')?.classList.remove('ai-streaming');
+        
+        console.log('AI建议生成完成，总字符数:', fullContent.length);
+        
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.error('AI请求被中断（超时或手动取消）');
+            throw new Error('请求超时，请稍后重试');
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+// 简单的markdown渲染（用于流式显示）
+function renderMarkdownSimple(text) {
+    return text
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n- /g, '<br>• ')
+        .replace(/\n(\d+)\. /g, '<br>$1. ')
+        .replace(/\n/g, '<br>');
+}
+
+// 调用豆包 AI API（非流式，备用）
+async function callDoubaoAI(reportData) {
+    const prompt = buildAIPrompt(reportData);
 
     const response = await fetch(DOUBAO_API_CONFIG.url, {
         method: 'POST',
@@ -4700,7 +5676,7 @@ ${reportData.diagnostics.positionMismatch ? `- 岗位不匹配: ${reportData.dia
         },
         body: JSON.stringify({
             model: DOUBAO_API_CONFIG.model,
-            max_completion_tokens: 2000,
+            max_completion_tokens: 4096,  // 增加到4096以避免输出被截断
             messages: [
                 {
                     role: 'user',
@@ -4749,24 +5725,23 @@ function analyzeAndGenerateAdvice() {
     const hardViolations = violations.filter(v => v.type === 'hard');
     const softViolations = violations.filter(v => v.type === 'soft');
     
-    // 计算员工工作量 - 支持多种ID格式匹配
-    const employeeShiftCounts = {};
+    // 计算员工工作量 - 通过员工姓名匹配（最可靠的方式）
+    const employeeShiftCountsByName = {};
     assignments.forEach(a => {
-        const empId = a.employeeId || a.employee_id || a.empId;
-        if (empId) {
-            employeeShiftCounts[empId] = (employeeShiftCounts[empId] || 0) + 1;
-            employeeShiftCounts[String(empId)] = (employeeShiftCounts[String(empId)] || 0) + 1;
+        const empName = a.employeeName || a.employee_name;
+        if (empName) {
+            employeeShiftCountsByName[empName] = (employeeShiftCountsByName[empName] || 0) + 1;
         }
     });
     
     // 分析工作量分布
-    const shiftCounts = Object.values(employeeShiftCounts);
+    const shiftCounts = employees.map(e => employeeShiftCountsByName[e.name] || 0);
     const maxShifts = Math.max(...shiftCounts, 0);
     const minShifts = Math.min(...shiftCounts.filter(c => c > 0), 0);
     const avgShifts = shiftCounts.length > 0 ? (shiftCounts.reduce((a, b) => a + b, 0) / shiftCounts.length).toFixed(1) : 0;
     
     // 找出工作量过高和过低的员工
-    const getShiftCount = (emp) => employeeShiftCounts[emp.id] || employeeShiftCounts[String(emp.id)] || 0;
+    const getShiftCount = (emp) => employeeShiftCountsByName[emp.name] || 0;
     const overloadedEmployees = employees.filter(e => getShiftCount(e) > 5);
     const underutilizedEmployees = employees.filter(e => getShiftCount(e) < 2 && getShiftCount(e) > 0);
     const idleEmployees = employees.filter(e => getShiftCount(e) === 0);

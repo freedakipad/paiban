@@ -735,7 +735,8 @@ const defaultSettings = {
     minRestHours: 8,           // 减少到8小时
     maxConsecutiveDays: 6,
     minRestDays: 1,
-    maxShiftsPerMonth: 26,     // 每月最多班次数（约每周6班）
+    maxShiftsPerMonth: 26,     // 每月最多班次数（默认值，约每周6班）
+    monthlyMaxShifts: {},      // 每月单独设置的最大班次数 { "YYYY-MM": number }
     apiEndpoint: 'http://localhost:7012',
     timeout: 30,
     // 跨店调配设置
@@ -773,9 +774,11 @@ class AppState {
         this.scheduleWeeks = this.loadFromStorage('scheduleWeeks', {}); // 周次排班数据（包含每周历史）
         this.assignments = [];
         this.unfilledRequirements = [];
-        this.currentWeekStart = this.getWeekStart(new Date());
+        this.schedulePeriod = 'month'; // 排班周期：7(1周)、14(2周)、'month'(月度) - 默认月度
+        // 默认月度模式，起始日期为月初
+        const today = new Date();
+        this.currentWeekStart = new Date(today.getFullYear(), today.getMonth(), 1);
         this.currentView = 'schedule';
-        this.schedulePeriod = 7; // 排班周期：7(1周)、14(2周)、'month'(月度)
         this.currentStoreId = this.settings.currentStoreId || 'store-001';
         
         // 初始化当前周状态

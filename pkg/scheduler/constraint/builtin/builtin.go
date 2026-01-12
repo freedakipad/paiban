@@ -2,6 +2,8 @@
 package builtin
 
 import (
+	"fmt"
+
 	"github.com/paiban/paiban/pkg/scheduler/constraint"
 )
 
@@ -11,6 +13,7 @@ func RegisterDefaultConstraints(manager *constraint.Manager, config map[string]i
 	maxHoursPerDay := getConfigInt(config, "max_hours_per_day", 10)
 	maxHoursPerWeek := getConfigInt(config, "max_hours_per_week", 44)
 	maxHoursPerPeriod := getConfigInt(config, "max_hours_per_period", 0) // 0表示不限制
+	maxShiftsPerMonth := getConfigInt(config, "max_shifts_per_month", 0) // 0表示不限制
 	minRestBetweenShifts := getConfigInt(config, "min_rest_between_shifts", 10)
 	maxConsecutiveDays := getConfigInt(config, "max_consecutive_days", 6)
 	standardHoursPerWeek := getConfigInt(config, "standard_hours_per_week", 40)
@@ -38,6 +41,20 @@ func RegisterDefaultConstraints(manager *constraint.Manager, config map[string]i
 	manager.Register(NewMaxConsecutiveDaysConstraint(maxConsecutiveDays))
 	manager.Register(NewMaxShiftsPerDayConstraint(1)) // 每天最多1个班次
 	manager.Register(NewSkillRequiredConstraint())
+
+	// 每月最大班次数约束（如果配置了）
+	if maxShiftsPerMonth > 0 {
+		// 获取每月单独设置的限制（可选）
+		// 格式: { "2026-01": 20, "2026-02": 26, ... }
+		monthlyLimits := getConfigMonthlyLimits(config, "monthly_max_shifts")
+		
+		manager.Register(NewMaxShiftsPerMonthConstraint(maxShiftsPerMonth, monthlyLimits))
+		if len(monthlyLimits) > 0 {
+			fmt.Printf("📅 已注册每月最大班次数约束: 默认%d班/月, 自定义月份: %v\n", maxShiftsPerMonth, monthlyLimits)
+		} else {
+			fmt.Printf("📅 已注册每月最大班次数约束: %d 班/月\n", maxShiftsPerMonth)
+		}
+	}
 
 	// 注册软约束
 	manager.Register(NewWorkloadBalanceConstraint(workloadBalanceWeight, tolerancePercent))
@@ -177,4 +194,34 @@ func getConfigFloat(config map[string]interface{}, key string, defaultVal float6
 		}
 	}
 	return defaultVal
+}
+
+// getConfigMonthlyLimits 从配置中获取每月限制的 map
+// 格式: { "2026-01": 20, "2026-02": 26, ... }
+func getConfigMonthlyLimits(config map[string]interface{}, key string) map[string]int {
+	result := make(map[string]int)
+	if config == nil {
+		return result
+	}
+	
+	val, ok := config[key]
+	if !ok {
+		return result
+	}
+	
+	// 尝试转换为 map[string]interface{}
+	if m, ok := val.(map[string]interface{}); ok {
+		for month, limit := range m {
+			switch v := limit.(type) {
+			case int:
+				result[month] = v
+			case float64:
+				result[month] = int(v)
+			case int64:
+				result[month] = int(v)
+			}
+		}
+	}
+	
+	return result
 }

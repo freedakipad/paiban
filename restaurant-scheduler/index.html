@@ -86,7 +86,7 @@
                     <select class="period-select" id="periodSelect" title="排班周期">
                         <option value="7">1周</option>
                         <option value="14">2周</option>
-                        <option value="month">月度</option>
+                        <option value="month" selected>月度</option>
                     </select>
                     <button class="btn-icon" id="prevWeek">‹</button>
                     <span class="week-label" id="weekLabel">2026年1月第2周</span>
@@ -117,16 +117,16 @@
                 </div>
                 <div class="schedule-stats" id="scheduleStats">
                     <span class="stat-item">
-                        <span class="stat-label">总班次</span>
+                        <span class="stat-label">应排班次</span>
+                        <span class="stat-value" id="statRequired">0</span>
+                    </span>
+                    <span class="stat-item">
+                        <span class="stat-label">已排班次</span>
                         <span class="stat-value" id="statTotal">0</span>
                     </span>
                     <span class="stat-item">
                         <span class="stat-label">满足率</span>
                         <span class="stat-value" id="statRate">--%</span>
-                    </span>
-                    <span class="stat-item">
-                        <span class="stat-label">平均评分</span>
-                        <span class="stat-value" id="statScore">--</span>
                     </span>
                 </div>
                 <div class="btn-group"><button class="check-btn" onclick="checkScheduleGaps()">🔍 测算</button><button class="report-toggle-btn" onclick="toggleReportPanel()">📊 排班报告</button><button class="history-toggle-btn" onclick="toggleHistoryPanel()">📜 操作历史<span class="history-badge" id="historyCount">0</span></button></div>
@@ -237,18 +237,47 @@
             </div>
             
             <div class="settings-container">
-                <div class="settings-group">
-                    <h3>🏪 门店信息</h3>
-                    <div class="form-row">
-                        <label>门店名称</label>
-                        <input type="text" id="storeName" value="示例餐厅" placeholder="输入门店名称">
+                <div class="settings-group store-management-group">
+                    <h3>🏪 门店管理</h3>
+                    <div class="store-tabs">
+                        <div class="store-tabs-header" id="storeTabsHeader">
+                            <!-- 动态生成门店标签 -->
+                        </div>
+                        <button type="button" class="btn-mini btn-primary" id="addNewStore">➕ 添加门店</button>
                     </div>
-                    <div class="form-row">
-                        <label>营业时间</label>
-                        <div class="time-range">
-                            <input type="time" id="openTime" value="09:00">
-                            <span>至</span>
-                            <input type="time" id="closeTime" value="22:00">
+                    <div class="store-detail-form" id="storeDetailForm">
+                        <input type="hidden" id="editStoreId">
+                        <div class="form-row">
+                            <label>门店名称</label>
+                            <input type="text" id="storeName" value="" placeholder="输入门店名称">
+                        </div>
+                        <div class="form-row">
+                            <label>门店代码</label>
+                            <input type="text" id="storeCode" value="" placeholder="如: HQ, BJ01">
+                        </div>
+                        <div class="form-row">
+                            <label>门店地址</label>
+                            <input type="text" id="storeAddress" value="" placeholder="输入详细地址">
+                        </div>
+                        <div class="form-row">
+                            <label>联系电话</label>
+                            <input type="tel" id="storePhone" value="" placeholder="如: 010-12345678">
+                        </div>
+                        <div class="form-row">
+                            <label>负责人</label>
+                            <input type="text" id="storeManager" value="" placeholder="门店负责人姓名">
+                        </div>
+                        <div class="form-row">
+                            <label>营业时间</label>
+                            <div class="time-range">
+                                <input type="time" id="openTime" value="09:00">
+                                <span>至</span>
+                                <input type="time" id="closeTime" value="22:00">
+                            </div>
+                        </div>
+                        <div class="form-row store-actions">
+                            <button type="button" class="btn-mini btn-primary" id="saveStoreInfo">💾 保存门店</button>
+                            <button type="button" class="btn-mini btn-danger" id="deleteStore" style="display:none;">🗑️ 删除</button>
                         </div>
                     </div>
                 </div>
@@ -286,6 +315,28 @@
                         <label>每周最少休息</label>
                         <input type="number" id="minRestDays" value="1" min="0" max="3">
                         <span class="form-hint">天</span>
+                    </div>
+                    <div class="form-row">
+                        <label>每月最大工作天数（默认）</label>
+                        <input type="number" id="maxShiftsPerMonth" value="26" min="1" max="31">
+                        <span class="form-hint">天（未单独设置的月份使用此默认值）</span>
+                    </div>
+                    
+                    <div class="form-row monthly-limits-section">
+                        <label>自定义月份限制 <button type="button" class="btn-mini" id="toggleMonthlyLimits">📅 展开</button></label>
+                        <div id="monthlyLimitsContainer" class="monthly-limits-container" style="display: none;">
+                            <div class="monthly-limits-add">
+                                <select id="monthlyLimitMonth">
+                                    <!-- 动态生成月份选项 -->
+                                </select>
+                                <input type="number" id="monthlyLimitDays" value="26" min="1" max="31" placeholder="最大天数">
+                                <button type="button" class="btn-mini btn-primary" id="addMonthlyLimit">➕ 添加</button>
+                            </div>
+                            <div id="monthlyLimitsList" class="monthly-limits-list">
+                                <!-- 动态生成已设置的月份限制列表 -->
+                            </div>
+                            <p class="form-hint">可为特定月份（如节假日月份）设置不同的最大工作天数</p>
+                        </div>
                     </div>
                 </div>
 

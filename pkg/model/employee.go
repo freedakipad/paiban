@@ -27,6 +27,10 @@ type Employee struct {
 	// 工作偏好
 	Preferences *EmployeePreferences `json:"preferences,omitempty" db:"preferences"`
 
+	// 每月已有班次数（前端传入，用于月度班次限制约束）
+	// key: 月份 (YYYY-MM 格式), value: 该月班次数
+	MonthlyShiftsCounts map[string]int `json:"monthly_shifts_counts,omitempty" db:"-"`
+
 	// 服务区域（派出服务使用）
 	ServiceArea  *ServiceArea `json:"service_area,omitempty" db:"service_area"`
 	HomeLocation *Location    `json:"home_location,omitempty" db:"home_location"`
