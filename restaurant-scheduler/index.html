@@ -115,6 +115,11 @@
                         <span>🔓</span> 解锁
                     </button>
                 </div>
+                <div class="position-legend" id="positionLegend">
+                    <span class="legend-item"><span class="legend-dot pos-chef"></span>厨师</span>
+                    <span class="legend-item"><span class="legend-dot pos-waiter"></span>服务员</span>
+                    <span class="legend-item"><span class="legend-dot pos-cashier"></span>收银员</span>
+                </div>
                 <div class="schedule-stats" id="scheduleStats">
                     <span class="stat-item">
                         <span class="stat-label">应排班次</span>
@@ -129,7 +134,7 @@
                         <span class="stat-value" id="statRate">--%</span>
                     </span>
                 </div>
-                <div class="btn-group"><button class="check-btn" onclick="checkScheduleGaps()">🔍 测算</button><button class="report-toggle-btn" onclick="toggleReportPanel()">📊 排班报告</button><button class="history-toggle-btn" onclick="toggleHistoryPanel()">📜 操作历史<span class="history-badge" id="historyCount">0</span></button></div>
+                <div class="btn-group"><button class="estimate-btn" onclick="estimateStaffingNeeds()">📋 试算</button><button class="check-btn" onclick="checkScheduleGaps()">🔍 测算</button><button class="report-toggle-btn" onclick="toggleReportPanel()">📊 排班报告</button><button class="history-toggle-btn" onclick="toggleHistoryPanel()">📜 操作历史<span class="history-badge" id="historyCount">0</span></button></div>
             </div>
             
             <div class="schedule-container">
@@ -168,6 +173,9 @@
         <section id="tab-employees" class="tab-content">
             <div class="section-header">
                 <h2>👥 员工管理</h2>
+                <div class="employee-counts" id="employeeCounts">
+                    <!-- 动态生成员工统计数据 -->
+                </div>
                 <button class="btn-primary" id="addEmployee">
                     <span>+ 添加员工</span>
                 </button>
@@ -199,6 +207,10 @@
                 </div>
                 <div class="search-box">
                     <input type="text" id="searchEmployee" placeholder="🔍 搜索员工姓名...">
+                </div>
+                <div class="toggle-all-btns">
+                    <button class="btn-toggle-all" onclick="toggleAllEmployeeCards(true)" title="展开全部">📖 展开</button>
+                    <button class="btn-toggle-all" onclick="toggleAllEmployeeCards(false)" title="折叠全部">📕 折叠</button>
                 </div>
             </div>
 

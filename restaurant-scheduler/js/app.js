@@ -46,6 +46,267 @@ function toggleShiftCollapse(shiftId) {
     renderScheduleGrid();
 }
 
+// 试算各门店各岗位人员需求
+function estimateStaffingNeeds() {
+    const weekDates = appState.getWeekDates();
+    const isAllMode = appState.isAllStoresMode();
+    const stores = isAllMode ? appState.getAllStores() : [appState.getCurrentStore()].filter(Boolean);
+    
+    // 获取约束配置 - 优先使用当前月份的配置，否则使用默认值
+    const currentMonth = weekDates[0];
+    const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+    const monthlyMaxShifts = appState.settings.monthlyMaxShifts || {};
+    const maxShiftsPerMonth = monthlyMaxShifts[monthKey] || appState.settings.maxShiftsPerMonth || 26;
+    const daysInPeriod = weekDates.length;
+    
+    // 计算周期内每人可排班次数上限
+    // 如果是月度（约30天），使用月度限制；如果是周度，按比例计算
+    const daysInMonth = 30;
+    const maxShiftsPerPerson = Math.ceil((maxShiftsPerMonth / daysInMonth) * daysInPeriod);
+    
+    console.log(`📋 试算配置: 月份=${monthKey}, 每月最大班次=${maxShiftsPerMonth}, 周期天数=${daysInPeriod}, 每人最大班次=${maxShiftsPerPerson}`);
+    
+    // 存储每个门店每个岗位的需求统计
+    const storeStats = {};
+    
+    stores.forEach(store => {
+        storeStats[store.id] = {
+            storeName: store.name,
+            positions: {}
+        };
+        
+        // 统计该门店每个岗位的总班次需求
+        weekDates.forEach(date => {
+            const dayReqs = appState.getRequirementsForDate(date, store.id);
+            Object.entries(dayReqs).forEach(([shiftId, positionReqs]) => {
+                Object.entries(positionReqs).forEach(([position, count]) => {
+                    if (count > 0) {
+                        if (!storeStats[store.id].positions[position]) {
+                            storeStats[store.id].positions[position] = {
+                                totalShifts: 0,
+                                dailyShifts: {}
+                            };
+                        }
+                        storeStats[store.id].positions[position].totalShifts += count;
+                        
+                        // 按日期统计（用于计算峰值）
+                        const dateStr = formatDate(date);
+                        if (!storeStats[store.id].positions[position].dailyShifts[dateStr]) {
+                            storeStats[store.id].positions[position].dailyShifts[dateStr] = 0;
+                        }
+                        storeStats[store.id].positions[position].dailyShifts[dateStr] += count;
+                    }
+                });
+            });
+        });
+        
+        // 计算每个岗位需要的人数
+        Object.entries(storeStats[store.id].positions).forEach(([position, stats]) => {
+            // 基于总班次/每人最大班次计算基础人数
+            const minByTotal = Math.ceil(stats.totalShifts / maxShiftsPerPerson);
+            
+            // 基于日峰值计算（确保每天都有足够人手）
+            const dailyValues = Object.values(stats.dailyShifts);
+            const maxDaily = Math.max(...dailyValues, 0);
+            const minByPeak = maxDaily;
+            
+            // 取两者较大值作为建议人数
+            stats.recommendedStaff = Math.max(minByTotal, minByPeak);
+            stats.avgDaily = (stats.totalShifts / daysInPeriod).toFixed(1);
+            stats.maxDaily = maxDaily;
+        });
+    });
+    
+    // 统计当前实际员工数并计算利用率
+    let totalShiftsNeeded = 0;
+    let totalCurrentStaff = 0;
+    let totalRecommendedStaff = 0;
+    
+    stores.forEach(store => {
+        const storeEmployees = appState.employees.filter(e => e.storeId === store.id && e.status === 'active');
+        let storeTotalShifts = 0;
+        let storeCurrentStaff = 0;
+        
+        Object.keys(storeStats[store.id].positions).forEach(position => {
+            const positionEmployees = storeEmployees.filter(e => e.position === position);
+            const stats = storeStats[store.id].positions[position];
+            stats.currentStaff = positionEmployees.length;
+            
+            storeTotalShifts += stats.totalShifts;
+            storeCurrentStaff += stats.currentStaff;
+            totalRecommendedStaff += stats.recommendedStaff;
+        });
+        
+        // 计算门店利用率
+        const storeCapacity = storeCurrentStaff * maxShiftsPerPerson;
+        storeStats[store.id].totalShifts = storeTotalShifts;
+        storeStats[store.id].currentStaff = storeCurrentStaff;
+        storeStats[store.id].utilizationRate = storeCapacity > 0 
+            ? Math.round((storeTotalShifts / storeCapacity) * 100) 
+            : 0;
+        
+        totalShiftsNeeded += storeTotalShifts;
+        totalCurrentStaff += storeCurrentStaff;
+    });
+    
+    // 计算总体利用率
+    const totalCapacity = totalCurrentStaff * maxShiftsPerPerson;
+    const overallUtilization = totalCapacity > 0 
+        ? Math.round((totalShiftsNeeded / totalCapacity) * 100) 
+        : 0;
+    
+    // 显示结果
+    showEstimateResult(storeStats, daysInPeriod, maxShiftsPerPerson, maxShiftsPerMonth, monthKey, {
+        totalShiftsNeeded,
+        totalCurrentStaff,
+        totalRecommendedStaff,
+        totalCapacity,
+        overallUtilization
+    });
+}
+
+// 显示试算结果
+function showEstimateResult(storeStats, daysInPeriod, maxShiftsPerPerson, maxShiftsPerMonth, monthKey, summary) {
+    // 利用率评估
+    let utilizationLevel = '';
+    let utilizationColor = '';
+    if (summary.overallUtilization < 50) {
+        utilizationLevel = '偏低（人员冗余）';
+        utilizationColor = 'warning';
+    } else if (summary.overallUtilization < 70) {
+        utilizationLevel = '较低';
+        utilizationColor = 'warning';
+    } else if (summary.overallUtilization <= 85) {
+        utilizationLevel = '健康';
+        utilizationColor = 'success';
+    } else if (summary.overallUtilization <= 100) {
+        utilizationLevel = '较高';
+        utilizationColor = 'info';
+    } else {
+        utilizationLevel = '超负荷！';
+        utilizationColor = 'danger';
+    }
+    
+    let html = `
+        <div class="estimate-modal-content">
+            <h3>📋 人员需求试算结果</h3>
+            <p class="estimate-intro">
+                月份: <strong>${monthKey}</strong> | 
+                排班周期: <strong>${daysInPeriod}天</strong> | 
+                月最大班次: <strong>${maxShiftsPerMonth}班</strong> | 
+                周期内每人最大: <strong>${maxShiftsPerPerson}班</strong>
+            </p>
+            
+            <div class="estimate-summary">
+                <div class="summary-card">
+                    <div class="summary-label">总班次需求</div>
+                    <div class="summary-value">${summary.totalShiftsNeeded}</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">现有在职人数</div>
+                    <div class="summary-value">${summary.totalCurrentStaff}</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">理论产能</div>
+                    <div class="summary-value">${summary.totalCapacity}</div>
+                </div>
+                <div class="summary-card ${utilizationColor}">
+                    <div class="summary-label">人员利用率</div>
+                    <div class="summary-value">${summary.overallUtilization}%</div>
+                    <div class="summary-note">${utilizationLevel}</div>
+                </div>
+            </div>
+    `;
+    
+    Object.values(storeStats).forEach(store => {
+        const positions = Object.entries(store.positions);
+        if (positions.length === 0) return;
+        
+        // 门店利用率评估
+        let storeUtilLevel = '';
+        if (store.utilizationRate < 70) {
+            storeUtilLevel = '⚠️ 偏低';
+        } else if (store.utilizationRate <= 85) {
+            storeUtilLevel = '✅ 健康';
+        } else if (store.utilizationRate <= 100) {
+            storeUtilLevel = '📈 较高';
+        } else {
+            storeUtilLevel = '🔴 超负荷';
+        }
+        
+        html += `
+            <div class="estimate-store-section">
+                <h4>🏪 ${store.storeName} <span class="store-util">利用率: ${store.utilizationRate}% ${storeUtilLevel}</span></h4>
+                <table class="estimate-table">
+                    <thead>
+                        <tr>
+                            <th>岗位</th>
+                            <th>总班次</th>
+                            <th>日均</th>
+                            <th>日峰值</th>
+                            <th>建议人数</th>
+                            <th>现有人数</th>
+                            <th>差距</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        positions.forEach(([position, stats]) => {
+            const diff = (stats.currentStaff || 0) - stats.recommendedStaff;
+            const diffClass = diff >= 0 ? 'positive' : 'negative';
+            const diffText = diff >= 0 ? `+${diff}` : `${diff}`;
+            
+            html += `
+                <tr>
+                    <td><strong>${position}</strong></td>
+                    <td>${stats.totalShifts}</td>
+                    <td>${stats.avgDaily}</td>
+                    <td>${stats.maxDaily}</td>
+                    <td class="highlight">${stats.recommendedStaff}</td>
+                    <td>${stats.currentStaff || 0}</td>
+                    <td class="diff ${diffClass}">${diffText}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+    });
+    
+    html += `
+            <p class="estimate-note">
+                💡 建议人数 = max(总班次÷每人最大班次, 日峰值需求)<br>
+                差距为正表示人员充足，为负表示需要招聘
+            </p>
+        </div>
+    `;
+    
+    // 创建或更新动态模态框
+    let modal = document.getElementById('estimateModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'estimateModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content modal-lg">
+                <div class="modal-header">
+                    <h3>📋 人员需求试算</h3>
+                    <button class="btn-close" onclick="closeModal('estimateModal')">×</button>
+                </div>
+                <div class="modal-body" id="estimateModalBody"></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    document.getElementById('estimateModalBody').innerHTML = html;
+    openModal('estimateModal');
+}
+
 // 测算排班缺口和超员
 function checkScheduleGaps() {
     const weekDates = appState.getWeekDates();
@@ -1190,19 +1451,22 @@ function renderScheduleGrid() {
                 // 获取员工手机号（完整）
                 const phone = emp?.phone || '';
                 
-                // 紧凑卡片：姓名 + 岗位色签 + 门店色签（跨店显示两个门店）+ 完整手机号
+                // 紧凑卡片：第一行（姓名+门店），第二行（手机号）
                 // 非只读状态下启用拖拽
                 const draggableAttr = isReadOnly ? '' : `draggable="true" ondragstart="handleDragStart(event, '${a.id}')"`;
                 html += `
                     <div class="assignment-card compact ${shiftClass} ${readOnlyClass} ${isCrossStore ? 'cross-store' : ''}" data-id="${a.id}" ${draggableAttr} ${clickHandler}>
-                        <span class="card-name">${formatEmployeeNameByName(a.employeeName)}</span>
-                        <span class="card-tag ${positionClass}">${a.position || ''}</span>
-                        ${isCrossStore ? `
-                            <span class="card-tag ${homeStoreClass}" title="所属门店: ${homeStoreName}">${homeStoreCode}</span>
-                            <span class="card-arrow">→</span>
-                            <span class="card-tag ${workStoreClass}" title="工作门店: ${workStoreName}">${workStoreCode}</span>
-                        ` : (workStoreCode ? `<span class="card-tag ${workStoreClass}">${workStoreCode}</span>` : '')}
-                        ${phone ? `<span class="card-phone">${phone}</span>` : ''}
+                        <div class="card-row">
+                            <span class="card-name ${positionClass}" title="${a.position || ''}">${formatEmployeeNameByName(a.employeeName)}</span>
+                            <span class="store-tags">
+                                ${isCrossStore ? `
+                                    <span class="card-tag ${homeStoreClass}" title="所属门店: ${homeStoreName}">${homeStoreCode}</span>
+                                    <span class="card-arrow">→</span>
+                                    <span class="card-tag ${workStoreClass}" title="工作门店: ${workStoreName}">${workStoreCode}</span>
+                                ` : (workStoreCode ? `<span class="card-tag ${workStoreClass}">${workStoreCode}</span>` : '')}
+                            </span>
+                        </div>
+                        ${phone ? `<div class="card-phone">${phone}</div>` : ''}
                     </div>
                 `;
             });
@@ -2214,11 +2478,105 @@ function updateCalendarMonthDisplay() {
     }
 }
 
+// 更新员工人数统计
+function updateEmployeeCounts() {
+    const container = document.getElementById('employeeCounts');
+    if (!container) return;
+    
+    const isAllMode = appState.isAllStoresMode();
+    
+    if (isAllMode) {
+        // 全部门店模式：显示每个门店的统计
+        let html = '';
+        const stores = appState.getAllStores();
+        
+        // 总计
+        const totalAll = appState.employees.length;
+        const activeAll = appState.employees.filter(e => e.status === 'active').length;
+        const inactiveAll = appState.employees.filter(e => e.status === 'inactive').length;
+        html += `<span class="count-badge total">总计 <strong>${totalAll}</strong></span>`;
+        html += `<span class="count-badge active">在职 <strong>${activeAll}</strong></span>`;
+        html += `<span class="count-badge inactive">离职 <strong>${inactiveAll}</strong></span>`;
+        html += `<span class="count-divider">|</span>`;
+        
+        // 各门店
+        stores.forEach(store => {
+            const storeEmps = appState.employees.filter(e => e.storeId === store.id);
+            const activeCount = storeEmps.filter(e => e.status === 'active').length;
+            const inactiveCount = storeEmps.filter(e => e.status === 'inactive').length;
+            html += `<span class="count-badge store">${store.name}: <span class="active-num">${activeCount}</span>在职 / <span class="inactive-num">${inactiveCount}</span>离职</span>`;
+        });
+        
+        container.innerHTML = html;
+    } else {
+        // 单店模式：只显示当前门店
+        const employees = appState.employees.filter(e => e.storeId === appState.currentStoreId);
+        const totalCount = employees.length;
+        const activeCount = employees.filter(e => e.status === 'active').length;
+        const inactiveCount = employees.filter(e => e.status === 'inactive').length;
+        
+        container.innerHTML = `
+            <span class="count-badge total">全部 <strong>${totalCount}</strong></span>
+            <span class="count-badge active">在职 <strong>${activeCount}</strong></span>
+            <span class="count-badge inactive">离职 <strong>${inactiveCount}</strong></span>
+        `;
+    }
+}
+
+// 切换员工卡片展开/折叠状态
+function toggleEmployeeCard(empId) {
+    // 初始化展开状态存储
+    if (!appState.expandedEmployees) {
+        appState.expandedEmployees = {};
+    }
+    
+    // 切换状态
+    appState.expandedEmployees[empId] = !appState.expandedEmployees[empId];
+    
+    // 更新DOM
+    const card = document.querySelector(`.employee-card-large[data-emp-id="${empId}"]`);
+    if (card) {
+        const calendar = card.querySelector('.employee-calendar');
+        const toggle = card.querySelector('.collapse-toggle');
+        
+        if (appState.expandedEmployees[empId]) {
+            card.classList.remove('collapsed');
+            card.classList.add('expanded');
+            calendar.classList.remove('hidden');
+            toggle.textContent = '▼';
+        } else {
+            card.classList.remove('expanded');
+            card.classList.add('collapsed');
+            calendar.classList.add('hidden');
+            toggle.textContent = '▶';
+        }
+    }
+}
+
+// 展开/折叠所有员工卡片
+function toggleAllEmployeeCards(expand) {
+    if (!appState.expandedEmployees) {
+        appState.expandedEmployees = {};
+    }
+    
+    document.querySelectorAll('.employee-card-large').forEach(card => {
+        const empId = card.dataset.empId;
+        if (empId) {
+            appState.expandedEmployees[empId] = expand;
+        }
+    });
+    
+    renderEmployeeGrid();
+}
+
 function renderEmployeeGrid() {
     const grid = document.getElementById('employeeGrid');
     const positionFilter = document.getElementById('filterPosition').value;
     const statusFilter = document.getElementById('filterStatus').value;
     const searchTerm = document.getElementById('searchEmployee').value.toLowerCase();
+    
+    // 更新员工人数统计
+    updateEmployeeCounts();
     
     // 获取所有需要显示的员工（包括离职员工）
     // "全部门店"模式：显示所有员工；单店模式：当前门店员工
@@ -2293,6 +2651,48 @@ function renderEmployeeGrid() {
         }
     }
     
+    // 按岗位排序（岗位优先级：厨师、服务员、收银员、店长、其他）
+    const positionOrder = ['厨师', '服务员', '收银员', '店长'];
+    const sortByPosition = (a, b) => {
+        const orderA = positionOrder.indexOf(a.position);
+        const orderB = positionOrder.indexOf(b.position);
+        const posA = orderA === -1 ? 999 : orderA;
+        const posB = orderB === -1 ? 999 : orderB;
+        if (posA !== posB) return posA - posB;
+        // 同岗位按姓名排序
+        return a.name.localeCompare(b.name);
+    };
+    
+    // 按门店分组后再按岗位排序
+    if (hasMultipleStores) {
+        const sortedEmployees = [];
+        let currentStore = null;
+        let currentBatch = [];
+        
+        employees.forEach(emp => {
+            if (emp.storeId !== currentStore) {
+                // 保存上一批并排序
+                if (currentBatch.length > 0) {
+                    currentBatch.sort(sortByPosition);
+                    sortedEmployees.push(...currentBatch);
+                }
+                currentStore = emp.storeId;
+                currentBatch = [emp];
+            } else {
+                currentBatch.push(emp);
+            }
+        });
+        // 处理最后一批
+        if (currentBatch.length > 0) {
+            currentBatch.sort(sortByPosition);
+            sortedEmployees.push(...currentBatch);
+        }
+        employees = sortedEmployees;
+    } else {
+        // 单门店模式直接排序
+        employees.sort(sortByPosition);
+    }
+    
     // 获取选定月份的所有排班数据（已发布和已归档）
     const year = employeeCalendarMonth.getFullYear();
     const month = employeeCalendarMonth.getMonth();
@@ -2320,6 +2720,12 @@ function renderEmployeeGrid() {
             const storeType = store ? (STORE_TYPES[store.type] || STORE_TYPES.standard) : STORE_TYPES.standard;
             const isCurrentStore = currentGroupStoreId === appState.currentStoreId;
             
+            // 计算该门店的员工统计
+            const storeEmpsAll = appState.employees.filter(e => e.storeId === currentGroupStoreId);
+            const storeTotal = storeEmpsAll.length;
+            const storeActive = storeEmpsAll.filter(e => e.status === 'active').length;
+            const storeInactive = storeEmpsAll.filter(e => e.status === 'inactive').length;
+            
             // "全部门店"模式下，所有门店都平等显示
             let groupLabel;
             if (isAllMode) {
@@ -2333,7 +2739,11 @@ function renderEmployeeGrid() {
             html += `
                 <div class="employee-group-header ${isAllMode ? 'all-stores' : (isCurrentStore ? 'current-store' : 'other-store')}">
                     <span class="group-label">${groupLabel}</span>
-                    <span class="group-count">${employees.filter(e => e.storeId === currentGroupStoreId).length}人</span>
+                    <span class="group-count">
+                        共<strong>${storeTotal}</strong>人 | 
+                        <span class="count-active">在职${storeActive}</span> / 
+                        <span class="count-inactive">离职${storeInactive}</span>
+                    </span>
                 </div>
             `;
         }
@@ -2356,9 +2766,16 @@ function renderEmployeeGrid() {
         // 生成日历视图
         const calendarHtml = generateEmployeeCalendar(empAssignments, emp.id);
         
+        // 获取岗位类名用于背景色
+        const positionClass = getPositionClass(emp.position);
+        
+        // 检查是否展开（存储在全局状态）
+        const isExpanded = appState.expandedEmployees && appState.expandedEmployees[emp.id];
+        
         html += `
-            <div class="employee-card-large">
-                <div class="employee-card-header">
+            <div class="employee-card-large ${positionClass} ${isExpanded ? 'expanded' : 'collapsed'}" data-emp-id="${emp.id}">
+                <div class="employee-card-header" onclick="toggleEmployeeCard('${emp.id}')">
+                    <span class="collapse-toggle">${isExpanded ? '▼' : '▶'}</span>
                     <div class="employee-avatar" style="background: ${stringToColor(emp.name)}">${getAvatarLetter(emp.name)}</div>
                     <div class="employee-info">
                         <div class="employee-name-row">
@@ -2377,7 +2794,7 @@ function renderEmployeeGrid() {
                         ${emp.canTransfer ? '<span class="summary-item transfer-badge" title="可跨店调配">🔄</span>' : ''}
                     </div>
                 </div>
-                <div class="employee-calendar" id="emp-calendar-${emp.id}">
+                <div class="employee-calendar ${isExpanded ? '' : 'hidden'}" id="emp-calendar-${emp.id}">
                     ${calendarHtml}
                 </div>
             </div>
