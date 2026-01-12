@@ -204,7 +204,7 @@ class ScheduleAPI {
      * 构建约束数据 - 后端期望map[string]interface{}格式
      */
     buildConstraints() {
-        const { hoursMode, maxWeeklyHours, maxPeriodHours, minRestHours, maxConsecutiveDays, minRestDays } = appState.settings;
+        const { hoursMode, maxWeeklyHours, maxPeriodHours, minRestHours, maxConsecutiveDays, minRestDays, maxShiftsPerMonth } = appState.settings;
         
         const constraints = {
             hours_mode: hoursMode || 'weekly',
@@ -551,8 +551,16 @@ class ScheduleAPI {
             try {
                 const result = await this.sendScheduleRequest(requestData);
                 
-                // 收集结果并更新跟踪
+                // 收集结果并更新跟踪，添加工作门店信息
                 result.assignments.forEach(a => {
+                    // 为补充排班添加工作门店信息（从需求中获取）
+                    const req = dateReqs.find(r => r.position === a.position);
+                    if (req) {
+                        a.workStoreId = req.storeId;
+                        a.workStoreName = req.storeName;
+                        const workStore = appState.stores.find(s => s.id === req.storeId);
+                        a.workStoreCode = workStore?.code || '';
+                    }
                     allSupplementAssignments.push(a);
                     const key = `${a.employeeName}-${a.date}`;
                     employeeDayAssigned[key] = true;
@@ -725,6 +733,10 @@ class ScheduleAPI {
             // 使用本地员工ID（如果找到），否则使用后端返回的ID
             const localEmployeeId = localEmp?.id || a.employee_id;
             
+            // 工作门店（从后端返回或请求中获取）
+            const workStoreId = a.work_store_id || a.store_id || request.store_id || storeId;
+            const workStore = workStoreId ? appState.stores.find(s => s.id === workStoreId) : store;
+            
             return {
                 id: a.id,
                 employeeId: localEmployeeId,  // 使用本地员工ID以便统计匹配
@@ -740,7 +752,10 @@ class ScheduleAPI {
                 scoreDetail: a.score_detail,
                 storeId: storeId,                          // 员工所属门店ID
                 storeName: store?.name || '未知门店',       // 员工所属门店名称
-                storeCode: store?.code || ''               // 门店代码
+                storeCode: store?.code || '',              // 员工所属门店代码
+                workStoreId: workStoreId,                  // 工作门店ID
+                workStoreName: workStore?.name || '未知门店', // 工作门店名称
+                workStoreCode: workStore?.code || ''       // 工作门店代码
             };
         });
         
@@ -804,6 +819,68 @@ class ScheduleAPI {
             },
             computeTime: response.compute_time_ms
         };
+    }
+
+    /**
+     * 根据每月最大班次数限制过滤排班
+     * 考虑已有排班，确保每个员工每月总班次不超过限制
+     */
+    filterByMonthlyShiftLimit(newAssignments, maxShiftsPerMonth) {
+        // 统计每个员工每月已有的班次数（从现有排班中）
+        const employeeMonthlyShifts = {};
+        
+        // 先统计现有排班
+        (appState.assignments || []).forEach(a => {
+            const month = a.date.substring(0, 7); // YYYY-MM
+            const key = `${a.employeeName}-${month}`;
+            employeeMonthlyShifts[key] = (employeeMonthlyShifts[key] || 0) + 1;
+        });
+        
+        // 过滤新排班，确保不超过限制
+        const filtered = [];
+        newAssignments.forEach(a => {
+            const month = a.date.substring(0, 7);
+            const key = `${a.employeeName}-${month}`;
+            const currentCount = employeeMonthlyShifts[key] || 0;
+            
+            if (currentCount < maxShiftsPerMonth) {
+                filtered.push(a);
+                employeeMonthlyShifts[key] = currentCount + 1;
+            } else {
+                console.log(`⚠️ 过滤排班: ${a.employeeName} 在 ${month} 已有 ${currentCount} 班，超出限制 ${maxShiftsPerMonth}`);
+            }
+        });
+        
+        return filtered;
+    }
+    
+    /**
+     * 计算员工当前周期的班次数（用于均衡分配）
+     */
+    getEmployeeShiftCounts(weekDates) {
+        const counts = {};
+        const startDate = formatDate(weekDates[0]);
+        const endDate = formatDate(weekDates[weekDates.length - 1]);
+        
+        // 统计当前周期内的排班
+        (appState.assignments || []).forEach(a => {
+            if (a.date >= startDate && a.date <= endDate) {
+                counts[a.employeeName] = (counts[a.employeeName] || 0) + 1;
+            }
+        });
+        
+        return counts;
+    }
+    
+    /**
+     * 对员工列表按班次数排序（班次少的优先）
+     */
+    sortEmployeesByWorkload(employees, shiftCounts) {
+        return [...employees].sort((a, b) => {
+            const countA = shiftCounts[a.name] || 0;
+            const countB = shiftCounts[b.name] || 0;
+            return countA - countB; // 班次少的排前面
+        });
     }
 
     /**

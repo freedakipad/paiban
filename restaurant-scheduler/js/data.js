@@ -735,6 +735,7 @@ const defaultSettings = {
     minRestHours: 8,           // 减少到8小时
     maxConsecutiveDays: 6,
     minRestDays: 1,
+    maxShiftsPerMonth: 26,     // 每月最多班次数（约每周6班）
     apiEndpoint: 'http://localhost:7012',
     timeout: 30,
     // 跨店调配设置

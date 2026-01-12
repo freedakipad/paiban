@@ -684,6 +684,20 @@ html, body {
     margin-left: auto;
 }
 
+/* 跨店人员样式 - 使用独特背景色（与晚班区分） */
+.assignment-card.compact.cross-store {
+    background: linear-gradient(135deg, #0891b2, #06b6d4) !important;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.2);
+}
+
+.assignment-card.compact .card-arrow {
+    font-size: 8px;
+    color: rgba(255,255,255,0.9);
+    margin: 0 2px;
+    font-weight: bold;
+}
+
 /* 班次折叠样式 */
 .row-label {
     cursor: pointer;

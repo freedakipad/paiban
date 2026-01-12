@@ -1051,10 +1051,13 @@ function renderScheduleGrid() {
                     return map;
                 }, {});
                 
-                // 按门店顺序排序
+                // 按工作门店顺序排序（跨店人员按工作门店排）
                 cellAssignments = cellAssignments.sort((a, b) => {
-                    const orderA = storeOrder[a.storeId] ?? 999;
-                    const orderB = storeOrder[b.storeId] ?? 999;
+                    // 使用工作门店排序（如果有），否则使用所属门店
+                    const workStoreA = a.workStoreId || a.storeId;
+                    const workStoreB = b.workStoreId || b.storeId;
+                    const orderA = storeOrder[workStoreA] ?? 999;
+                    const orderB = storeOrder[workStoreB] ?? 999;
                     if (orderA !== orderB) return orderA - orderB;
                     // 同一门店内按岗位排序（厨师优先）
                     if (a.position !== b.position) {
@@ -1104,21 +1107,38 @@ function renderScheduleGrid() {
                 const readOnlyClass = isReadOnly ? 'archived' : '';
                 
                 // 获取门店信息和岗位样式
-                const storeName = a.storeName || '';
-                const storeCode = a.storeCode || '';
+                const emp = appState.employees.find(e => e.name === a.employeeName);
+                const homeStoreId = emp?.storeId || a.storeId || '';
+                const homeStore = appState.stores.find(s => s.id === homeStoreId);
+                const homeStoreCode = homeStore?.code || a.storeCode || '';
+                const homeStoreName = homeStore?.name || a.storeName || '';
+                
+                // 工作门店（排班分配到的门店）
+                const workStoreId = a.workStoreId || a.storeId || homeStoreId;
+                const workStore = appState.stores.find(s => s.id === workStoreId);
+                const workStoreCode = a.workStoreCode || workStore?.code || '';
+                const workStoreName = a.workStoreName || workStore?.name || '';
+                
                 const positionClass = getPositionClass(a.position);
-                const storeClass = getStoreClass(storeCode);
+                const homeStoreClass = getStoreClass(homeStoreCode);
+                const workStoreClass = getStoreClass(workStoreCode);
+                
+                // 判断是否跨店（所属门店与工作门店不同）
+                const isCrossStore = homeStoreId && workStoreId && homeStoreId !== workStoreId;
                 
                 // 获取员工手机号（完整）
-                const emp = appState.employees.find(e => e.name === a.employeeName);
                 const phone = emp?.phone || '';
                 
-                // 紧凑卡片：姓名 + 岗位色签 + 门店色签 + 完整手机号
+                // 紧凑卡片：姓名 + 岗位色签 + 门店色签（跨店显示两个门店）+ 完整手机号
                 html += `
-                    <div class="assignment-card compact ${shiftClass} ${readOnlyClass}" data-id="${a.id}" ${clickHandler}>
+                    <div class="assignment-card compact ${shiftClass} ${readOnlyClass} ${isCrossStore ? 'cross-store' : ''}" data-id="${a.id}" ${clickHandler}>
                         <span class="card-name">${formatEmployeeNameByName(a.employeeName)}</span>
                         <span class="card-tag ${positionClass}">${a.position || ''}</span>
-                        ${storeCode ? `<span class="card-tag ${storeClass}">${storeCode}</span>` : ''}
+                        ${isCrossStore ? `
+                            <span class="card-tag ${homeStoreClass}" title="所属门店: ${homeStoreName}">${homeStoreCode}</span>
+                            <span class="card-arrow">→</span>
+                            <span class="card-tag ${workStoreClass}" title="工作门店: ${workStoreName}">${workStoreCode}</span>
+                        ` : (workStoreCode ? `<span class="card-tag ${workStoreClass}">${workStoreCode}</span>` : '')}
                         ${phone ? `<span class="card-phone">${phone}</span>` : ''}
                     </div>
                 `;
